@@ -1,27 +1,10 @@
 from __future__ import annotations
 
-import pytest
-
 from open_csi_publisher.api.auth import User
 from open_csi_publisher.api.services import list_visible_datasets
-from open_csi_publisher.providers.config.folder import FolderConfigProvider
-from open_csi_publisher.sources import DatasetLocation
 
 ANONYMOUS = None
 LOGGED_IN = User(subject="test-user")
-
-
-@pytest.fixture
-def locations(sample_config_dir, fixture_config_dir):
-    real_provider = FolderConfigProvider(sample_config_dir)
-    fixture_provider = FolderConfigProvider(fixture_config_dir)
-    return [
-        DatasetLocation("real", ds_id, real_provider, None)
-        for ds_id in real_provider.list_dataset_ids()
-    ] + [
-        DatasetLocation("fixtures", ds_id, fixture_provider, None)
-        for ds_id in fixture_provider.list_dataset_ids()
-    ]
 
 
 def _ids(result) -> set[str]:
