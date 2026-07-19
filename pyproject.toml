@@ -28,7 +28,11 @@ dependencies = [
     # default. Recent setuptools (>=81ish) dropped pkg_resources entirely, so
     # this needs an explicit older pin, not just "any setuptools".
     "setuptools<81",
+    "click>=8.1",
 ]
+
+[project.scripts]
+open-csi-config = "open_csi_publisher.cli.create_config:main"
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.1"]
