@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
 from open_csi_publisher.sources import DatasetLocation
@@ -30,7 +31,20 @@ def locations(sample_config_dir, fixture_config_dir):
 def session_factory():
     """A fresh in-memory-sqlite session factory, for overriding get_db_session in
     router/app tests (TestClient requests run outside the test's own db_session
-    fixture, so they need their own factory rather than a single Session)."""
-    engine = create_engine("sqlite:///:memory:", future=True)
+    fixture, so they need their own factory rather than a single Session).
+
+    StaticPool + check_same_thread=False: TestClient dispatches each request to a
+    worker thread (via anyio.to_thread.run_sync); SQLAlchemy's default pool for
+    sqlite:///:memory: hands each thread its own connection, i.e. its own separate
+    empty in-memory database ("no such table" even though create_all ran). A
+    single shared connection is required for an in-memory DB to actually be
+    visible across threads.
+    """
+    engine = create_engine(
+        "sqlite:///:memory:",
+        future=True,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)
