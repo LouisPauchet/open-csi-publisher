@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pytest
@@ -109,6 +109,27 @@ def test_build_dataset_time_window_narrows_result(db_session, config_provider, d
         "kapp_thordsen_10minute",
         start=datetime(2026, 7, 17, 11, 30, 0),
         end=datetime(2026, 7, 18, 0, 0, 0),
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=data_provider,
+    )
+    time_values = ds["time"].values
+    assert time_values.min() >= np.datetime64(datetime(2026, 7, 17, 11, 30, 0))
+    assert time_values.max() <= np.datetime64(datetime(2026, 7, 18, 0, 0, 0))
+
+
+@requires_mount
+def test_build_dataset_accepts_timezone_aware_start_and_end(db_session, config_provider, data_provider):
+    # A REST query param like "?start=2026-07-17T11:30:00.000Z" (exactly what
+    # JS's Date.toISOString() produces, e.g. static/js/map.js's mobile-track
+    # fetch) is parsed by FastAPI/pydantic into a timezone-aware datetime —
+    # raw LoggerNet timestamps and the file index are naive, so without
+    # normalization this raises "can't compare offset-naive and
+    # offset-aware datetimes" instead of narrowing the result.
+    ds = build_dataset(
+        "kapp_thordsen_10minute",
+        start=datetime(2026, 7, 17, 11, 30, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 7, 18, 0, 0, 0, tzinfo=timezone.utc),
         session=db_session,
         config_provider=config_provider,
         data_provider=data_provider,

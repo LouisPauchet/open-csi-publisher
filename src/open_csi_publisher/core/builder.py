@@ -33,6 +33,9 @@ def build_dataset(
     files actually needed, maps them to canonical variable names, resolves
     fixed/mobile deployment metadata, and attaches CF-ish global attributes.
     """
+    start = _naive_utc(start)
+    end = _naive_utc(end)
+
     config = get_versioned_config(dataset_id, session=session, config_provider=config_provider)
 
     index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
@@ -51,6 +54,21 @@ def build_dataset(
     result.attrs.update(_build_global_attrs(config))
     result.attrs.update(_build_provenance_attrs(session, dataset_id, config))
     return result
+
+
+def _naive_utc(value: datetime | None) -> datetime | None:
+    # Raw LoggerNet timestamps carry no timezone and are treated as UTC by
+    # convention. A caller-supplied start/end can arrive timezone-aware — a
+    # REST query param like "?start=2026-07-17T11:30:00.000Z" (exactly what
+    # JS's Date.toISOString() produces) is parsed by FastAPI/pydantic into an
+    # aware datetime — so it's converted to UTC and made naive here, the same
+    # convention already used for Deployment.start/end
+    # (core/config_schema.py), so it compares directly against the naive
+    # file-index/`time` coordinate instead of raising a naive-vs-aware
+    # TypeError.
+    if value is not None and value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 
 def _select_files_covering(
