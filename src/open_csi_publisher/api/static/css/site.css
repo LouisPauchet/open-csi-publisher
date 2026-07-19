@@ -123,6 +123,11 @@ main {
 .dataset-table {
   width: 100%;
   border-collapse: collapse;
+  /* fixed, not auto: with auto layout a single long unwrapped cell (e.g. a
+     long comma-separated variable list) blows out its column's preferred
+     width and starves the others — fixed + explicit per-column widths below
+     keeps sizing stable regardless of content length. */
+  table-layout: fixed;
 }
 
 .dataset-table th,
@@ -131,6 +136,27 @@ main {
   padding: 0.5rem 0.6rem;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.dataset-table th:nth-child(1),
+.dataset-table td:nth-child(1) {
+  width: 18%;
+}
+
+.dataset-table th:nth-child(2),
+.dataset-table td:nth-child(2) {
+  width: 30%;
+}
+
+.dataset-table th:nth-child(3),
+.dataset-table td:nth-child(3) {
+  width: 42%;
+}
+
+.dataset-table th:nth-child(4),
+.dataset-table td:nth-child(4) {
+  width: 10%;
 }
 
 .dataset-table thead th {

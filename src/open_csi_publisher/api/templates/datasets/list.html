@@ -48,9 +48,9 @@
         <thead>
           <tr>
             <th>Title</th>
-            <th>Platform</th>
-            <th>Variables</th>
             <th>Description</th>
+            <th>Variables</th>
+            <th>Platform</th>
           </tr>
         </thead>
         <tbody>
@@ -64,9 +64,9 @@
               data-meta='{{ ds.metadata | tojson }}'
               {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
             <td>{{ ds.title }}</td>
-            <td>{{ ds.platform_type }}</td>
-            <td>{{ ds.standard_names | join(', ') }}</td>
             <td>{{ ds.metadata.description or '' }}</td>
+            <td>{{ ds.standard_names | join(', ') }}</td>
+            <td>{{ ds.platform_type }}</td>
           </tr>
           {% else %}
           <tr><td colspan="4" class="empty">No datasets match these filters.</td></tr>
