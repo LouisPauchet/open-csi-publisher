@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from open_csi_publisher.api.access import is_visible
 from open_csi_publisher.api.auth import User
 from open_csi_publisher.api.schemas import DatasetListResponse, DatasetSummary
 from open_csi_publisher.core.config_schema import DatasetConfig
@@ -32,7 +33,7 @@ def list_visible_datasets(
         config = get_versioned_config(
             location.dataset_id, session=session, config_provider=location.config_provider
         )
-        if config.access == "restricted" and user is None:
+        if not is_visible(config, user):
             continue
 
         doc = build_search_document(config)
