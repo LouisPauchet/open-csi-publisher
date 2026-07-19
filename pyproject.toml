@@ -1,0 +1,45 @@
+[project]
+name = "open-csi-publisher"
+version = "0.1.0"
+description = "UNIS environmental monitoring data portal"
+readme = "README.md"
+authors = [
+    { name = "Louis Pauchet", email = "louis.pauchet@insa-rouen.fr" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "xarray>=2024.6",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "sqlalchemy>=2.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "httpx>=0.27",
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: opt-in tests that parse large real sample files (deselect with -m 'not slow')",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
