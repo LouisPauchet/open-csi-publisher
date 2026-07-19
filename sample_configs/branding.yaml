@@ -4,7 +4,7 @@
 #
 # Colors and the logo URL are taken from UNIS's own public site (www.unis.no),
 # specifically its wp-content/themes/unis/assets/css/vars.css design tokens.
-site_name: "UNIS Environmental Data Portal"
+site_name: "Environmental Data Portal"
 logo_url: "https://www.unis.no/wp-content/uploads/2022/05/unis-logo-liggende.svg"
 color_primary: "#006199"
 color_secondary: "#1D201F"
