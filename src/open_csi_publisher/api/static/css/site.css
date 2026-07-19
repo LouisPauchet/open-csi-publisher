@@ -1,5 +1,10 @@
 :root {
-  color-scheme: light dark;
+  /* light only, deliberately: this portal doesn't support a dark theme —
+     "light dark" would let the OS/browser dark-mode preference flip native
+     form-control rendering (inputs, selects) to dark colors while the
+     page's own branding colors stay fixed to their light values, producing
+     an unreadable mismatch. */
+  color-scheme: light;
   --border: var(--brand-border, #d0d5da);
   --muted: #666;
 }
