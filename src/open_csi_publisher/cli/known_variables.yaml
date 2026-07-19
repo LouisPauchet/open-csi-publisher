@@ -1,0 +1,38 @@
+# Seed mapping table for the config-creation CLI's variable-matching assist
+# (implementation_plan.md §15). Raw LoggerNet column name -> suggested
+# {standard_name, units}. Grows as new sensor types/naming conventions are
+# encountered — an editable reference file, not hardcoded into the CLI.
+#
+# Seeded from raw column names actually observed across the real UNIS
+# sample stations in mount/loggernet-test-server/.
+
+AirT_C: {standard_name: air_temperature, units: degC}
+AirTC_Avg: {standard_name: air_temperature, units: degC}
+temperature_Avg: {standard_name: air_temperature, units: degC}
+temperature: {standard_name: air_temperature, units: degC}
+
+RH: {standard_name: relative_humidity, units: "%"}
+relative_humidity_Avg: {standard_name: relative_humidity, units: "%"}
+relative_humidity: {standard_name: relative_humidity, units: "%"}
+
+BP_mbar: {standard_name: air_pressure, units: mbar}
+air_pressure_Avg: {standard_name: air_pressure, units: hPa}
+
+WS_ms: {standard_name: wind_speed, units: m/s}
+wind_speed_Avg: {standard_name: wind_speed, units: m/s}
+wind_speed_corrected_Avg: {standard_name: wind_speed, units: m/s}
+
+WindDir: {standard_name: wind_from_direction, units: degrees}
+wind_direction_Avg: {standard_name: wind_from_direction, units: Deg}
+wind_direction_corrected_Avg: {standard_name: wind_from_direction, units: Deg}
+
+DP_C: {standard_name: dew_point_temperature, units: degC}
+dewpoint_temperature_Avg: {standard_name: dew_point_temperature, units: degC}
+
+surface_temperature_Avg: {standard_name: surface_temperature, units: degC}
+SST_Avg: {standard_name: sea_surface_temperature, units: degC}
+
+latitude: {standard_name: latitude, units: degrees_north}
+longitude: {standard_name: longitude, units: degrees_east}
+
+PAR_Avg: {standard_name: surface_downwelling_photosynthetic_radiative_flux_in_air, units: micromol/m2/s}
