@@ -69,6 +69,17 @@ def test_get_data_provider_unknown_type_raises():
         get_data_provider(source, base_dir=REPO_ROOT)
 
 
+def test_get_data_provider_generic_csv_returns_provider():
+    from open_csi_publisher.providers.data.generic_csv.provider import GenericCsvDataProvider
+
+    source = SourceEntry(
+        id="s", type="generic_csv", config_provider="folder",
+        config_location="x", data_location="tests/fixtures/generic_csv/data/",
+    )
+    provider = get_data_provider(source, base_dir=REPO_ROOT)
+    assert isinstance(provider, GenericCsvDataProvider)
+
+
 @requires_mount
 def test_list_all_datasets_enumerates_across_sources(sample_config_dir):
     sources = load_sources(sample_config_dir / "sources.yaml")

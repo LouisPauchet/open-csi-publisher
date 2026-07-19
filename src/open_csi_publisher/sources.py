@@ -7,6 +7,7 @@ import yaml
 
 from open_csi_publisher.providers.base import ConfigProvider, DataProvider
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
+from open_csi_publisher.providers.data.generic_csv.provider import GenericCsvDataProvider
 from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
 
 
@@ -45,6 +46,8 @@ def get_config_provider(source: SourceEntry, *, base_dir: Path) -> ConfigProvide
 def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
     if source.type == "loggernet":
         return LoggerNetDataProvider(base_dir / source.data_location)
+    if source.type == "generic_csv":
+        return GenericCsvDataProvider(base_dir / source.data_location)
     raise ValueError(f"unknown source type: {source.type!r}")
 
 

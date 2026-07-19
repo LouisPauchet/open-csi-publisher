@@ -1,0 +1,24 @@
+{
+  "id": "generic_csv_demo",
+  "source_type": "generic_csv",
+  "access": "public",
+  "source_config": {
+    "file_path": "station_x.csv",
+    "timestamp_column": "timestamp"
+  },
+  "variables": [
+    {"raw_name": "temp", "standard_name": "air_temperature", "units": "degC"},
+    {"raw_name": "humidity", "standard_name": "relative_humidity", "units": "%"}
+  ],
+  "platform_type": "fixed",
+  "deployments": [
+    {"start": "2026-01-01T00:00:00Z", "end": null, "lat": 60.0, "lon": 10.0}
+  ],
+  "metadata": {
+    "title": "Generic CSV Demo Station"
+  },
+  "output": {
+    "file_naming": "{station}.nc",
+    "publish": false
+  }
+}
