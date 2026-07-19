@@ -20,6 +20,14 @@ dependencies = [
     "python-multipart>=0.0.9",
     "h5netcdf>=1.3",
     "h5py>=3.11",
+    "xpublish>=0.5",
+    "xpublish-opendap>=0.2",
+    "cachetools>=5.3",
+    # opendap-protocol (xpublish-opendap's dependency) imports pkg_resources at
+    # module load time; modern uv-managed venvs don't bundle setuptools by
+    # default. Recent setuptools (>=81ish) dropped pkg_resources entirely, so
+    # this needs an explicit older pin, not just "any setuptools".
+    "setuptools<81",
 ]
 
 [project.optional-dependencies]

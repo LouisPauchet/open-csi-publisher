@@ -38,6 +38,10 @@ def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
     assert detail.status_code == 200
     assert detail.json()["id"] == "hanna_resvoll_10min"
 
+    opendap = client.get("/opendap/datasets/hanna_resvoll_10min/opendap.dds")
+    assert opendap.status_code == 200
+    assert "air_temperature" in opendap.text
+
 
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):
     # a real deployment's sources/data paths are explicit config (absolute paths
