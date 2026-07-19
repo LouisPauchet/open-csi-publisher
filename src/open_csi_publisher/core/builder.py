@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+import xarray as xr
+from sqlalchemy.orm import Session
+
+from open_csi_publisher.core.config_schema import DatasetConfig, VariableSpec
+from open_csi_publisher.core.config_versioning import get_versioned_config
+from open_csi_publisher.core.deployment import apply_deployment_metadata
+from open_csi_publisher.core.models import FileRecord
+from open_csi_publisher.core.variable_mapping import apply_variable_spec
+from open_csi_publisher.index.service import refresh_and_get_index
+from open_csi_publisher.providers.base import ConfigProvider, DataProvider
+
+
+def build_dataset(
+    dataset_id: str,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    variables: list[str] | None = None,
+    *,
+    session: Session,
+    config_provider: ConfigProvider,
+    data_provider: DataProvider,
+) -> xr.Dataset:
+    """The one function every consumer (REST, OPeNDAP, downloads, the publish
+    endpoint) calls (implementation_plan.md §7): resolves the current config
+    version, lazily refreshes the file index, reads only the raw columns and
+    files actually needed, maps them to canonical variable names, resolves
+    fixed/mobile deployment metadata, and attaches CF-ish global attributes.
+    """
+    config = get_versioned_config(dataset_id, session=session, config_provider=config_provider)
+
+    index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
+    selected = _select_files_covering(index_entries, start, end)
+
+    raw_columns = _resolve_raw_columns_needed(config.variables, variables)
+    raw = data_provider.read_range(
+        config.source_config, files=selected, start=start, end=end, variables=raw_columns
+    )
+
+    mapped = apply_variable_spec(raw, config.variables)
+    if variables is not None:
+        mapped = mapped[[name for name in variables if name in mapped.data_vars]]
+
+    result = apply_deployment_metadata(mapped, config)
+    result.attrs.update(_build_global_attrs(config))
+    return result
+
+
+def _select_files_covering(
+    index_entries: list[FileRecord], start: datetime | None, end: datetime | None
+) -> list[FileRecord]:
+    selected = []
+    for entry in index_entries:
+        if entry.time_start is None or entry.time_end is None:
+            continue  # nothing parsed yet (e.g. a brand-new, still-empty live file)
+        if start is not None and entry.time_end < start:
+            continue
+        if end is not None and entry.time_start > end:
+            continue
+        selected.append(entry)
+    return selected
+
+
+def _resolve_raw_columns_needed(
+    variable_specs: list[VariableSpec], requested_canonical: list[str] | None
+) -> list[str]:
+    if requested_canonical is None:
+        specs = variable_specs
+    else:
+        wanted = set(requested_canonical)
+        specs = [spec for spec in variable_specs if spec.canonical_name in wanted]
+
+    raw_names: list[str] = []
+    for spec in specs:
+        raw_names.extend(spec.all_raw_names())
+    return raw_names
+
+
+def _build_global_attrs(config: DatasetConfig) -> dict[str, Any]:
+    attrs: dict[str, Any] = {
+        k: v for k, v in config.metadata.model_dump().items() if v is not None
+    }
+    attrs["id"] = config.id
+    attrs["platform_type"] = config.platform_type
+    return attrs

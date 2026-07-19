@@ -92,7 +92,18 @@ def parse_toa5_file(
 
     read_cols: list[str] | None = None
     if usecols is not None:
-        read_cols = [timestamp_column, *(c for c in usecols if c != timestamp_column)]
+        # A requested raw column may not exist in THIS file: the same dataset's
+        # fileset can have column drift between its live and archived files (e.g.
+        # a column added after a config/logger-program change). pandas.read_csv
+        # raises if usecols references a column absent from this file's own
+        # header, so intersect first — the column then simply isn't in this
+        # file's parsed dataset, which reconcile_fileset's outer join already
+        # turns into NaN for that file's time range, exactly as intended.
+        available = set(header.column_names)
+        read_cols = [
+            timestamp_column,
+            *(c for c in usecols if c != timestamp_column and c in available),
+        ]
 
     try:
         df = pd.read_csv(

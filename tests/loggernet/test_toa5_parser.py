@@ -98,6 +98,20 @@ def test_usecols_always_includes_timestamp_column(mount_root):
 
 
 @requires_mount
+def test_usecols_referencing_a_column_absent_from_this_file_is_ignored_not_an_error(mount_root):
+    # UNIS_AGF_Kapp_Thordsen_AWS_Table_10minute_Historical.dat has no
+    # surface_temperature_Avg column (it was added later, live-file-only) —
+    # requesting it must not raise, it should just be absent from the result.
+    parsed = parse_toa5_file(
+        mount_root / KAPP_THORDSEN_HISTORICAL,
+        usecols=["wind_speed_Avg", "surface_temperature_Avg"],
+    )
+    assert "wind_speed_Avg" in parsed.dataset.data_vars
+    assert "surface_temperature_Avg" not in parsed.dataset.data_vars
+    assert parsed.n_rows > 0
+
+
+@requires_mount
 def test_header_attrs_and_per_variable_unit_attrs_attached(mount_root):
     parsed = parse_toa5_file(mount_root / ISFJORD_LIVE)
     assert parsed.dataset.attrs["station_name"] == "UNIS_AT_Isfjord_Radio_Solar_Park_AWS"
