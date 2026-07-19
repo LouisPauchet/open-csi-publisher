@@ -121,6 +121,23 @@ class LoggerNetSourceConfig(BaseModel):
         return self
 
 
+class GenericCsvSourceConfig(BaseModel):
+    """A minimal second source type, purpose-built to stress-test the
+    ConfigProvider/DataProvider plugin boundary (implementation_plan.md §13) —
+    a single, exact CSV file per dataset, no live/archived fileset split."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file_path: str
+    timestamp_column: str = "timestamp"
+
+
+_SOURCE_CONFIG_TYPES: dict[str, type[BaseModel]] = {
+    "loggernet": LoggerNetSourceConfig,
+    "generic_csv": GenericCsvSourceConfig,
+}
+
+
 class MetadataSpec(BaseModel):
     """CF-ish global attributes. Extra keys (e.g. department, project) are preserved
     verbatim and are what the listing page's open-ended metadata filter searches over."""
@@ -145,14 +162,33 @@ class DatasetConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    source_type: Literal["loggernet"]
+    source_type: Literal["loggernet", "generic_csv"]
     access: Literal["public", "restricted"]
-    source_config: LoggerNetSourceConfig
+    source_config: LoggerNetSourceConfig | GenericCsvSourceConfig
     variables: list[VariableSpec]
     platform_type: Literal["fixed", "mobile"]
     deployments: list[Deployment]
     metadata: MetadataSpec
     output: OutputSpec
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_source_config_type(cls, data: Any) -> Any:
+        """`source_config`'s shape depends on the sibling `source_type` field.
+        Pydantic's discriminated-union support needs the discriminator field
+        embedded IN each union member, not a sibling on the parent — so this
+        picks and validates the right sub-model explicitly, before Pydantic's
+        own field-level union matching runs. Keeps the JSON shape unchanged
+        (source_type stays a top-level sibling of source_config, as every
+        existing config already has it) rather than nesting the discriminator
+        inside source_config.
+        """
+        if isinstance(data, dict) and isinstance(data.get("source_config"), dict):
+            model_cls = _SOURCE_CONFIG_TYPES.get(data.get("source_type"))
+            if model_cls is not None:
+                data = dict(data)
+                data["source_config"] = model_cls.model_validate(data["source_config"])
+        return data
 
     @model_validator(mode="after")
     def _check_deployments(self) -> "DatasetConfig":
