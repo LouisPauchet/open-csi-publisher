@@ -31,7 +31,10 @@ explains the shape; read those files alongside it for concrete values.
 - `metadata` — global attributes; `title` is required, everything else is optional.
   **Arbitrary extra keys are allowed** (e.g. `department`, `project`) and are exactly
   what the dataset listing page's metadata filter searches over — this is deliberate,
-  not a schema gap.
+  not a schema gap. `description` is one such key with a special role in the UI: the
+  listing table shows it as its own column (instead of dumping every metadata field
+  into the row — that full set is still available in the detail panel once a dataset is
+  selected), so it's worth setting to a short, human-readable summary of the station.
 - `output.file_naming` — filename template for generated monthly files, used by the
   [publish endpoint](publish_endpoint.md) (e.g. `{station}_{table}_{yyyy}-{mm}.nc`).
 - `output.publish` — whether this dataset is exposed via the publish endpoint at all.

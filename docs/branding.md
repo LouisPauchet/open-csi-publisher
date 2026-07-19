@@ -32,13 +32,15 @@ header background, links, buttons, inputs, and the selected-row highlight.
 | `color_header_background` | Header bar background. |
 | `color_link` / `color_link_hover` | Link color, default and hover. |
 | `color_border` | Table/panel/input borders. |
-| `font_family` | CSS `font-family` value — a font-stack string, not a webfont fetch (no external font requests are made; if the named font isn't installed locally, it falls through to the rest of the stack, same as any CSS font-family fallback). |
+| `font_family` | CSS `font-family` value for body text — a font-stack string, not a webfont fetch (no external font requests are made; if the named font isn't installed locally, it falls through to the rest of the stack, same as any CSS font-family fallback). |
+| `heading_font_family` | Same, for `h1`–`h6`. Defaults to `inherit` (no separate heading font). |
 | `radius` | Border-radius for buttons/inputs. |
 
 The shipped `sample_configs/branding.yaml` uses UNIS's own public site (www.unis.no)
-design tokens — colors and the logo URL come straight from
-`wp-content/themes/unis/assets/css/vars.css` on unis.no, so the portal's default look
-matches the parent site it's built for.
+design tokens — colors, fonts, and the logo URL come straight from
+`wp-content/themes/unis/assets/css/vars.css` on unis.no (IBM Plex Sans for body text,
+the serif Adamina for headings), so the portal's default look matches the parent site
+it's built for.
 
 ## Using this for a non-UNIS deployment
 

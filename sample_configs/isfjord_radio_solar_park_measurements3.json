@@ -32,6 +32,7 @@
   ],
   "metadata": {
     "title": "UNIS AT Example Solar Park AWS",
+    "description": "Fixed weather station recording standard meteorological variables plus shortwave irradiance from four pyranometer channels.",
     "institution": "University Centre in Svalbard (UNIS)",
     "department": "Arctic Technology",
     "standard_name_vocabulary": "CF-1.10"

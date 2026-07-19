@@ -59,3 +59,16 @@ After any change to `static/js/map.js` or `static/js/dataset_panel.js`, also che
 10. Clicking a table row (or a map marker) opens the detail panel with the right title,
     metadata, and three working links: OPeNDAP structure (DDS), download NetCDF,
     download CSV — and highlights the selected row.
+
+After any change to `site.css`'s layout rules (`.portal-layout`, `#dataset-panel`,
+`.dataset-table-wrap`), also check:
+
+11. The browser window/page itself never grows a scrollbar — the header stays put, and
+    the map, dataset table, and detail panel each fill their own space.
+12. On `/`, the dataset table scrolls on its own (mouse over the table) without moving
+    the filter form above it; the column headers stay pinned while scrolling.
+13. Select a dataset with a lot of metadata (or temporarily add a few dummy fields to a
+    sample config) — the metadata list inside the panel scrolls on its own, while the
+    title, description, date-range inputs, and download links above/below it stay put.
+14. Resize the window below ~900px wide (or use a mobile viewport) — the layout falls
+    back to a normal scrolling page instead of the fixed-height two-column layout.

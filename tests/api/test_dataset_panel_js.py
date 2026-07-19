@@ -49,3 +49,18 @@ def test_dataset_panel_js_updates_download_links_from_the_date_range():
     assert "panel-download-csv" in content
     assert "URLSearchParams" in content
     assert "addEventListener" in content
+
+
+def test_dataset_panel_js_shows_description_separately_from_the_metadata_list():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-description" in content
+    assert 'key !== "description"' in content
+
+
+def test_dataset_panel_js_only_scrolls_the_metadata_list():
+    # title/description and the dates/links stay in "panel-fixed" blocks;
+    # only "panel-meta-scroll" (the metadata <ul>) is meant to scroll — see
+    # the matching #dataset-panel .panel-meta-scroll rule in site.css
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-fixed" in content
+    assert "panel-meta-scroll" in content

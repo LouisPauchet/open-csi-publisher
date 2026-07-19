@@ -30,6 +30,7 @@ class BrandingConfig(BaseModel):
     color_link_hover: str = "#0E2A38"
     color_border: str = "#D0D5DA"
     font_family: str = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+    heading_font_family: str = "inherit"
     radius: str = "6px"
 
 

@@ -76,3 +76,23 @@ def test_mobile_dataset_row_has_no_lat_lon_attributes(client):
 def test_restricted_dataset_never_gets_a_marker_or_row_for_anonymous(client):
     body = client.get("/").text
     assert "restricted_station" not in body
+
+
+def test_listing_table_shows_description_column_not_full_metadata(client):
+    body = client.get("/").text
+    assert "<th>Description</th>" in body
+    # the real description text (kapp_thordsen_10minute) is shown...
+    assert "Fixed automatic weather station at Kapp Thordsen" in body
+    # ...but other metadata fields that used to be dumped into the row are
+    # no longer rendered there (still present in data-meta for JS/filtering,
+    # just not as visible table cells)
+    assert "<th>Metadata</th>" not in body
+    assert "standard_name_vocabulary:" not in body
+
+
+def test_dataset_row_still_carries_full_metadata_for_the_panel_and_filters(client):
+    body = client.get("/").text
+    # data-meta is what dataset_panel.js and map.js read from — must still
+    # carry every field (including description), just not rendered as a cell
+    assert '"standard_name_vocabulary"' in body
+    assert '"description"' in body

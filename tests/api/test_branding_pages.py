@@ -39,14 +39,15 @@ def client(app):
 
 def test_listing_page_reflects_default_unis_branding(client):
     body = client.get("/").text
-    assert "UNIS" in body
     assert "unis-logo-liggende.svg" in body
     assert "--brand-primary: #006199" in body
+    assert '--brand-font: "IBM Plex Sans"' in body
+    assert '--brand-heading-font: "Adamina"' in body
 
 
 def test_map_page_reflects_default_unis_branding(client):
     body = client.get("/map").text
-    assert "UNIS" in body
+    assert "unis-logo-liggende.svg" in body
     assert "--brand-primary: #006199" in body
 
 

@@ -14,4 +14,5 @@ color_link: "#004083"
 color_link_hover: "#6F4F2B"
 color_border: "#B6C4C7"
 font_family: '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif'
+heading_font_family: '"Adamina", "IBM Plex Sans", serif'
 radius: "8px"

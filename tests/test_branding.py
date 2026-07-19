@@ -20,6 +20,16 @@ def test_branding_config_has_sensible_generic_defaults():
     assert branding.site_name
     assert branding.color_primary.startswith("#")
     assert branding.color_link.startswith("#")
+    # no separate heading font by default — headings just inherit body text
+    assert branding.heading_font_family == "inherit"
+
+
+def test_default_branding_file_uses_unis_website_fonts():
+    # unis.no's own theme (vars.css): IBM Plex Sans for body text, Adamina
+    # (serif) for headings — see docs/branding.md for the source.
+    branding = load_branding(DEFAULT_BRANDING_FILE)
+    assert "IBM Plex Sans" in branding.font_family
+    assert "Adamina" in branding.heading_font_family
 
 
 def test_load_branding_returns_defaults_when_file_missing(tmp_path):
@@ -54,8 +64,10 @@ def test_default_branding_file_is_unis_branded():
     # sample_configs/branding.yaml is this repo's actual shipped configuration
     # (same pattern as sample_configs/sources.yaml) — a non-UNIS deployer
     # replaces or repoints settings.branding_file, they don't edit this one.
+    # site_name is deliberately generic ("Environmental Data Portal"), so the
+    # logo + color set (pulled from unis.no's own theme) are what mark this as
+    # UNIS-branded, not the name text.
     branding = load_branding(DEFAULT_BRANDING_FILE)
-    assert "UNIS" in branding.site_name
     assert branding.logo_url is not None
     assert branding.logo_url.startswith("https://www.unis.no/")
     assert branding.color_primary == "#006199"

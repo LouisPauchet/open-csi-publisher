@@ -7,7 +7,7 @@
 
 <div class="portal-layout">
   <div class="portal-left">
-    <div id="map"></div>
+    <div id="map" class="map-embedded"></div>
     <div id="dataset-panel">
       <p class="panel-placeholder">Select a dataset (row or map marker) to see its details and access links.</p>
     </div>
@@ -43,39 +43,37 @@
 
     <p class="result-count">{{ total }} dataset{{ 's' if total != 1 else '' }}</p>
 
-    <table class="dataset-table" id="dataset-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Platform</th>
-          <th>Variables</th>
-          <th>Metadata</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for ds in datasets %}
-        <tr class="dataset-row"
-            data-id="{{ ds.id }}"
-            data-title="{{ ds.title }}"
-            data-search="{{ ([ds.id, ds.title, ds.institution or ''] + ds.metadata.values() | list) | join(' ') | lower }}"
-            data-platform-type="{{ ds.platform_type }}"
-            data-standard-names="{{ ds.standard_names | join(',') }}"
-            data-meta='{{ ds.metadata | tojson }}'
-            {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
-          <td>{{ ds.title }}</td>
-          <td>{{ ds.platform_type }}</td>
-          <td>{{ ds.standard_names | join(', ') }}</td>
-          <td>
-            {% for key, value in ds.metadata.items() %}
-            <span class="meta-kv"><strong>{{ key }}:</strong> {{ value }}</span>
-            {% endfor %}
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="4" class="empty">No datasets match these filters.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="dataset-table-wrap">
+      <table class="dataset-table" id="dataset-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Platform</th>
+            <th>Variables</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ds in datasets %}
+          <tr class="dataset-row"
+              data-id="{{ ds.id }}"
+              data-title="{{ ds.title }}"
+              data-search="{{ ([ds.id, ds.title, ds.institution or ''] + ds.metadata.values() | list) | join(' ') | lower }}"
+              data-platform-type="{{ ds.platform_type }}"
+              data-standard-names="{{ ds.standard_names | join(',') }}"
+              data-meta='{{ ds.metadata | tojson }}'
+              {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
+            <td>{{ ds.title }}</td>
+            <td>{{ ds.platform_type }}</td>
+            <td>{{ ds.standard_names | join(', ') }}</td>
+            <td>{{ ds.metadata.description or '' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">No datasets match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 

@@ -35,7 +35,13 @@ function showDatasetPanel(dataset) {
   const panel = document.getElementById("dataset-panel");
   if (!panel) return;
 
-  const metaItems = Object.entries(dataset.metadata || {})
+  const metadata = dataset.metadata || {};
+  const description = metadata.description || "";
+  // description gets its own line above; the metadata list below is the
+  // remaining (often long) key/value technical detail, scrolled separately
+  // so it can't push the always-visible title/description/links out of view.
+  const metaItems = Object.entries(metadata)
+    .filter(([key]) => key !== "description")
     .map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value))}</li>`)
     .join("");
 
@@ -43,11 +49,15 @@ function showDatasetPanel(dataset) {
   const opendapUrl = `${window.location.origin}/opendap/datasets/${id}/opendap`;
 
   panel.innerHTML =
+    `<div class="panel-fixed">` +
     `<h3>${escapeHtml(dataset.title)}</h3>` +
     `<p><code>${escapeHtml(dataset.id)}</code>` +
     (dataset.platform_type ? ` &middot; ${escapeHtml(dataset.platform_type)}` : "") +
     `</p>` +
-    `<ul class="panel-meta">${metaItems}</ul>` +
+    (description ? `<p class="panel-description">${escapeHtml(description)}</p>` : "") +
+    `</div>` +
+    `<div class="panel-meta-scroll"><ul class="panel-meta">${metaItems}</ul></div>` +
+    `<div class="panel-fixed">` +
     `<div class="panel-dates">` +
     `<label>From <input type="date" class="panel-start"></label>` +
     `<label>To <input type="date" class="panel-end"></label>` +
@@ -61,6 +71,7 @@ function showDatasetPanel(dataset) {
     `<code class="panel-opendap-url">${escapeHtml(opendapUrl)}</code>` +
     `<a class="panel-download-nc" href="/datasets/${id}/download.nc">Download NetCDF (.nc)</a>` +
     `<a class="panel-download-csv" href="/datasets/${id}/download.csv">Download CSV</a>` +
+    `</div>` +
     `</div>`;
   panel.classList.remove("hidden");
 

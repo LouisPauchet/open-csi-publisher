@@ -30,6 +30,7 @@
   ],
   "metadata": {
     "title": "UNIS AGF Boat Hanna Resvoll AWS",
+    "description": "Underway meteorological and oceanographic sensors aboard the research boat Hanna Resvoll, logging position, wind, humidity, pressure, solar radiation, and sea surface temperature.",
     "institution": "University Centre in Svalbard (UNIS)",
     "department": "Arctic Geophysics",
     "standard_name_vocabulary": "CF-1.10"

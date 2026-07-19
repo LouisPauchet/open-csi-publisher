@@ -14,6 +14,7 @@
   ],
   "metadata": {
     "title": "Restricted Test Station",
+    "description": "Test-only restricted station fixture used to exercise access-control behavior.",
     "institution": "University Centre in Svalbard (UNIS)",
     "department": "Test Fixtures"
   },
