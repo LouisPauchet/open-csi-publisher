@@ -3,12 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}UNIS Environmental Data Portal{% endblock %}</title>
+  <title>{% block title %}{{ branding.site_name }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/site.css">
+  <style>
+    :root {
+      --brand-primary: {{ branding.color_primary }};
+      --brand-secondary: {{ branding.color_secondary }};
+      --brand-background: {{ branding.color_background }};
+      --brand-header-background: {{ branding.color_header_background }};
+      --brand-link: {{ branding.color_link }};
+      --brand-link-hover: {{ branding.color_link_hover }};
+      --brand-border: {{ branding.color_border }};
+      --brand-font: {{ branding.font_family | safe }};
+      --brand-radius: {{ branding.radius }};
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">
-    <a class="site-title" href="/">UNIS Environmental Data Portal</a>
+    <a class="site-title" href="/">
+      {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
+      <span>{{ branding.site_name }}</span>
+    </a>
   </header>
   <main>
     {% block content %}{% endblock %}

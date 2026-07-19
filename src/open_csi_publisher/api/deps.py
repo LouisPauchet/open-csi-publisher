@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+from open_csi_publisher.branding import BrandingConfig, load_branding
 from open_csi_publisher.settings import settings
 from open_csi_publisher.sources import DatasetLocation, list_all_datasets, load_sources
 
@@ -42,3 +43,11 @@ def get_dataset_location(
         if location.dataset_id == dataset_id:
             return location
     raise HTTPException(status_code=404)
+
+
+def get_branding() -> BrandingConfig:
+    """Re-derived per call (cheap — a small YAML read), same as
+    get_dataset_locations(), so settings.branding_file changes (e.g. in tests)
+    take effect without restarting the process."""
+    base_dir = Path(settings.base_dir)
+    return load_branding(base_dir / settings.branding_file)

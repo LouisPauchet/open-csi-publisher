@@ -12,6 +12,7 @@ look.
 src/open_csi_publisher/
 ├── settings.py              Env-var configuration (pydantic-settings)
 ├── sources.py                sources.yaml -> providers, cross-source dataset enumeration
+├── branding.py                BrandingConfig — logo/color-set, see docs/branding.md
 ├── core/
 │   ├── config_schema.py      The dataset config envelope (Pydantic); discriminated
 │   │                         source_config union (loggernet | generic_csv)

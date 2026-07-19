@@ -17,6 +17,7 @@ def test_defaults_require_no_environment_variables(monkeypatch):
     settings = Settings()
     assert settings.database_url == "sqlite:///./local/state.db"
     assert settings.sources_file == "sample_configs/sources.yaml"
+    assert settings.branding_file == "sample_configs/branding.yaml"
     assert settings.oidc_issuer is None
     assert settings.oidc_client_id is None
     assert settings.oidc_client_secret is None

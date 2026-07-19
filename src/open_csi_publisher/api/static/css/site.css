@@ -1,24 +1,43 @@
 :root {
   color-scheme: light dark;
-  --border: #d0d5da;
+  --border: var(--brand-border, #d0d5da);
   --muted: #666;
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--brand-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   margin: 0;
   line-height: 1.4;
+  background: var(--brand-background, canvas);
+  color: var(--brand-secondary, canvastext);
+}
+
+a {
+  color: var(--brand-link, #0645ad);
+}
+
+a:hover {
+  color: var(--brand-link-hover, #0645ad);
 }
 
 .site-header {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
+  background: var(--brand-header-background, transparent);
 }
 
 .site-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
   font-weight: 600;
   text-decoration: none;
-  color: inherit;
+  color: var(--brand-primary, inherit);
+}
+
+.site-logo {
+  height: 36px;
+  width: auto;
 }
 
 main {
@@ -39,6 +58,20 @@ main {
 .filter-form button {
   padding: 0.4rem 0.6rem;
   font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--brand-radius, 4px);
+}
+
+.filter-form button {
+  background: var(--brand-primary, #333);
+  color: #fff;
+  border-color: var(--brand-primary, #333);
+  cursor: pointer;
+}
+
+.filter-form button:hover {
+  background: var(--brand-link-hover, #555);
+  border-color: var(--brand-link-hover, #555);
 }
 
 .result-count {
@@ -68,7 +101,7 @@ main {
 }
 
 .dataset-row.selected {
-  background: color-mix(in srgb, canvastext 8%, transparent);
+  background: color-mix(in srgb, var(--brand-primary, canvastext) 12%, transparent);
 }
 
 .meta-kv {
@@ -162,6 +195,8 @@ main {
 
 #dataset-panel .panel-dates input {
   padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--brand-radius, 4px);
 }
 
 @media (max-width: 900px) {

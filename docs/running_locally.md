@@ -25,7 +25,8 @@ sample data present under `mount/`.
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./local/state.db` | State store connection string. Point this at a PostgreSQL URL for prod-like testing (`postgresql+psycopg://...`) — the same SQLAlchemy models work against both. |
 | `SOURCES_FILE` | `sample_configs/sources.yaml` | Path (relative to `BASE_DIR`) to the sources manifest. |
-| `BASE_DIR` | `.` | Base directory `SOURCES_FILE` and each source's `config_location`/`data_location` are resolved against. Set this to an absolute path if running from somewhere other than the repo root. |
+| `BRANDING_FILE` | `sample_configs/branding.yaml` | Path (relative to `BASE_DIR`) to the logo/color-set config. See [branding.md](branding.md) — this is what a non-UNIS deployment repoints to reskin the portal. |
+| `BASE_DIR` | `.` | Base directory `SOURCES_FILE`, `BRANDING_FILE`, and each source's `config_location`/`data_location` are resolved against. Set this to an absolute path if running from somewhere other than the repo root. |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET_KEY` | unset | Inert placeholders for the future Entra ID/OIDC integration. While `OIDC_ISSUER` is unset (the default), every caller is anonymous and restricted datasets are always hidden — there is currently no way to log in. |
 | `PUBLISH_API_KEYS_RAW` | `""` (empty — no keys, endpoint always 401s) | Comma-separated static API keys for the publish endpoint. See [publish_endpoint.md](publish_endpoint.md). |
 | `PUBLISH_CACHE_DIR` | `local/publish_cache` | Where generated monthly NetCDF files are cached. |

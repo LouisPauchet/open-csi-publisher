@@ -8,6 +8,7 @@
 - [opendap.md](opendap.md) — OPeNDAP URLs, caching, a known client-interop caveat
 - [publish_endpoint.md](publish_endpoint.md) — the API-key-protected monthly-NetCDF publish endpoint
 - [cli.md](cli.md) — the `open-csi-config` config-creation CLI
+- [branding.md](branding.md) — customizing the logo/color set for a non-UNIS deployment
 - [architecture.md](architecture.md) — module map and how this code maps onto the system design
 
 The overall system design (config layers, providers, the file index, OPeNDAP/REST/

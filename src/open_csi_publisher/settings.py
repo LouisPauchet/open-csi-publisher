@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./local/state.db"
     sources_file: str = "sample_configs/sources.yaml"
+    branding_file: str = "sample_configs/branding.yaml"
     base_dir: str = "."
 
     # Auth seam (implementation_plan.md §10): unset by default, meaning every

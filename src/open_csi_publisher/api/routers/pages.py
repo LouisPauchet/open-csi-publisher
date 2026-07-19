@@ -7,8 +7,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.api.auth import User, get_current_user
-from open_csi_publisher.api.deps import get_dataset_locations, get_db_session
+from open_csi_publisher.api.deps import get_branding, get_dataset_locations, get_db_session
 from open_csi_publisher.api.services import list_visible_datasets
+from open_csi_publisher.branding import BrandingConfig
 from open_csi_publisher.sources import DatasetLocation
 
 router = APIRouter()
@@ -28,6 +29,7 @@ def datasets_page(
     session: Session = Depends(get_db_session),
     locations: list[DatasetLocation] = Depends(get_dataset_locations),
     user: User | None = Depends(get_current_user),
+    branding: BrandingConfig = Depends(get_branding),
 ):
     standard_name = standard_name or []
     meta_filters = [(meta_key, meta_value)] if meta_key and meta_value else []
@@ -63,14 +65,15 @@ def datasets_page(
                 "meta_key": meta_key or "",
                 "meta_value": meta_value or "",
             },
+            "branding": branding,
         },
     )
 
 
 @router.get("/map")
-def map_page(request: Request):
+def map_page(request: Request, branding: BrandingConfig = Depends(get_branding)):
     # No server-side dataset data to embed: static/js/map.js fetches /datasets
     # (and, per mobile dataset, /datasets/{id}/data) itself at runtime, reusing
     # the same access-controlled endpoints rather than duplicating that logic
     # here — a restricted dataset is excluded there exactly once already.
-    return templates.TemplateResponse(request, "map.html", {})
+    return templates.TemplateResponse(request, "map.html", {"branding": branding})
