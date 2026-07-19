@@ -28,6 +28,6 @@
   },
   "output": {
     "file_naming": "{station}_{table}_{yyyy}-{mm}.nc",
-    "publish": false
+    "publish": true
   }
 }

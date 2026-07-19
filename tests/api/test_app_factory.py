@@ -42,6 +42,9 @@ def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
     assert opendap.status_code == 200
     assert "air_temperature" in opendap.text
 
+    publish = client.get("/publish/datasets")
+    assert publish.status_code == 401  # wired in and gated, no key supplied
+
 
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):
     # a real deployment's sources/data paths are explicit config (absolute paths
