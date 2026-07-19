@@ -3,7 +3,7 @@
   "source_type": "loggernet",
   "access": "restricted",
   "source_config": {
-    "file_pattern": "restricted_station/*.dat*"
+    "file_pattern": "restricted_station/restricted_station.dat"
   },
   "variables": [
     {"raw_name": "AirT_C", "standard_name": "air_temperature", "units": "degC"}

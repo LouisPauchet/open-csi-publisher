@@ -3,7 +3,7 @@
   "source_type": "loggernet",
   "access": "public",
   "source_config": {
-    "file_pattern": "UNIS_AT_Example_Solar_Park_AWS/UNIS_AT_Example_Solar_Park_AWS_Measurements_3.dat*",
+    "file_pattern": "UNIS_AT_Example_Solar_Park_AWS/UNIS_AT_Example_Solar_Park_AWS_Measurements_3.dat",
     "table_name": "Measurements_3"
   },
   "variables": [

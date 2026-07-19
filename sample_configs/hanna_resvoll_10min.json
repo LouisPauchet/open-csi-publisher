@@ -3,7 +3,7 @@
   "source_type": "loggernet",
   "access": "public",
   "source_config": {
-    "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat*",
+    "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat",
     "table_name": "Table_10min"
   },
   "variables": [

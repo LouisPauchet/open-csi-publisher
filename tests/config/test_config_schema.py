@@ -12,7 +12,7 @@ FIXED_CONFIG = {
     "source_type": "loggernet",
     "access": "public",
     "source_config": {
-        "file_pattern": "UNIS_AT_Isfjord_Radio_Solar_Park_AWS/UNIS_AT_Isfjord_Radio_Solar_Park_AWS_Measurements_3.dat*",
+        "file_pattern": "UNIS_AT_Isfjord_Radio_Solar_Park_AWS/UNIS_AT_Isfjord_Radio_Solar_Park_AWS_Measurements_3.dat",
     },
     "variables": [
         {"raw_name": "AirT_C", "standard_name": "air_temperature", "units": "degC"},
@@ -31,7 +31,7 @@ MOBILE_CONFIG = {
     "source_type": "loggernet",
     "access": "public",
     "source_config": {
-        "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat*",
+        "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat",
     },
     "variables": [
         {"raw_name": "latitude", "standard_name": "latitude"},
@@ -153,6 +153,13 @@ def test_duplicate_raw_name_across_variables_rejected():
 def test_old_name_colliding_with_another_variables_raw_name_rejected():
     doc = copy.deepcopy(FIXED_CONFIG)
     doc["variables"][0]["old_names"] = ["MetSENS_Status"]
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate(doc)
+
+
+def test_file_pattern_not_ending_in_dat_rejected():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["source_config"]["file_pattern"] = "station/Table_10minute.dat*"
     with pytest.raises(ValidationError):
         DatasetConfig.model_validate(doc)
 

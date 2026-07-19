@@ -3,7 +3,7 @@
   "source_type": "loggernet",
   "access": "public",
   "source_config": {
-    "file_pattern": "UNIS_AGF_Kapp_Thordsen_AWS/UNIS_AGF_Kapp_Thordsen_AWS_Table_10minute.dat*",
+    "file_pattern": "UNIS_AGF_Kapp_Thordsen_AWS/UNIS_AGF_Kapp_Thordsen_AWS_Table_10minute.dat",
     "table_name": "Table_10minute"
   },
   "variables": [

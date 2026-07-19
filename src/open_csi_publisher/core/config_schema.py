@@ -84,6 +84,15 @@ class Deployment(BaseModel):
 
 
 class LoggerNetSourceConfig(BaseModel):
+    """`file_pattern` matches the live file ONLY and must end with the literal
+    `.dat` (may glob earlier segments, e.g. `*_Min.dat`) — the provider derives the
+    archived-file patterns from it (`_Historical.dat` inserted before the trailing
+    `.dat`, plus a `.dat.backup*` variant), rather than requiring one glob to catch
+    all three naming conventions at once. That single-glob approach doesn't work
+    when one table name is a prefix of another (e.g. `Min` vs `Min10` vs `Min60`):
+    a pattern like `*_Min*` would also match `*_Min10.dat`.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     file_pattern: str
@@ -91,6 +100,12 @@ class LoggerNetSourceConfig(BaseModel):
     table_name: str | None = None
     historical_suffix: str = "_Historical"
     record_column: str = "RECORD"
+
+    @model_validator(mode="after")
+    def _check_file_pattern(self) -> "LoggerNetSourceConfig":
+        if not self.file_pattern.endswith(".dat"):
+            raise ValueError("file_pattern must end with '.dat' (the live file's extension)")
+        return self
 
 
 class MetadataSpec(BaseModel):
