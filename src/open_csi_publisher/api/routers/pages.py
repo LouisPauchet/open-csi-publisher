@@ -65,3 +65,12 @@ def datasets_page(
             },
         },
     )
+
+
+@router.get("/map")
+def map_page(request: Request):
+    # No server-side dataset data to embed: static/js/map.js fetches /datasets
+    # (and, per mobile dataset, /datasets/{id}/data) itself at runtime, reusing
+    # the same access-controlled endpoints rather than duplicating that logic
+    # here — a restricted dataset is excluded there exactly once already.
+    return templates.TemplateResponse(request, "map.html", {})

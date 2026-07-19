@@ -20,6 +20,9 @@ def test_create_app_serves_static_files(tmp_path, monkeypatch):
 
     assert client.get("/static/css/site.css").status_code == 200
     assert client.get("/static/js/filter.js").status_code == 200
+    assert client.get("/static/js/map.js").status_code == 200
+    assert client.get("/static/vendor/leaflet/leaflet.js").status_code == 200
+    assert client.get("/static/vendor/leaflet/leaflet.css").status_code == 200
 
 
 def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
@@ -44,6 +47,9 @@ def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
 
     publish = client.get("/publish/datasets")
     assert publish.status_code == 401  # wired in and gated, no key supplied
+
+    map_page = client.get("/map")
+    assert map_page.status_code == 200
 
 
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):

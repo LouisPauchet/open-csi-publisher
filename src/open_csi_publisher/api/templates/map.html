@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}Station Map — UNIS Environmental Data Portal{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<div id="map" style="height: 70vh;"></div>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/js/map.js" defer></script>
+{% endblock %}
