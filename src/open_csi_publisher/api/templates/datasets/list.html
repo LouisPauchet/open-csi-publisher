@@ -32,6 +32,14 @@
 
 <p class="result-count">{{ total }} dataset{{ 's' if total != 1 else '' }}</p>
 
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<div class="map-panel-row">
+  <div id="map"></div>
+  <div id="dataset-panel">
+    <p class="panel-placeholder">Select a dataset (row or map marker) to see its details and access links.</p>
+  </div>
+</div>
+
 <table class="dataset-table" id="dataset-table">
   <thead>
     <tr>
@@ -45,10 +53,12 @@
     {% for ds in datasets %}
     <tr class="dataset-row"
         data-id="{{ ds.id }}"
+        data-title="{{ ds.title }}"
         data-search="{{ ([ds.id, ds.title, ds.institution or ''] + ds.metadata.values() | list) | join(' ') | lower }}"
         data-platform-type="{{ ds.platform_type }}"
         data-standard-names="{{ ds.standard_names | join(',') }}"
-        data-meta='{{ ds.metadata | tojson }}'>
+        data-meta='{{ ds.metadata | tojson }}'
+        {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
       <td>{{ ds.title }}</td>
       <td>{{ ds.platform_type }}</td>
       <td>{{ ds.standard_names | join(', ') }}</td>
@@ -64,5 +74,8 @@
   </tbody>
 </table>
 
+<script src="/static/vendor/leaflet/leaflet.js"></script>
 <script src="/static/js/filter.js" defer></script>
+<script src="/static/js/map.js" defer></script>
+<script src="/static/js/dataset_panel.js" defer></script>
 {% endblock %}

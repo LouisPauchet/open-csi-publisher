@@ -45,6 +45,13 @@ function applyFilters() {
 
     row.classList.toggle("hidden", !visible);
   });
+
+  // map.js, if loaded (embedded listing-page map), keeps its markers in
+  // sync with whatever rows this just hid/showed. Optional dependency: the
+  // listing page still works fine filtering rows if map.js isn't present.
+  if (typeof window.syncMapMarkersWithRows === "function") {
+    window.syncMapMarkersWithRows();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
