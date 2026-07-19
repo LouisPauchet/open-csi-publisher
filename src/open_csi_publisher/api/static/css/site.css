@@ -284,11 +284,73 @@ main {
   font-size: 0.9rem;
 }
 
-#dataset-panel .panel-links {
+/* Compact icon-button row (download / OPeNDAP / metadata+deployments JSON),
+   right after the title — replaces what used to be a long stack of inline
+   links/URL text that ate most of the panel's vertical space. Each button
+   toggles its own popover; see dataset_panel.js::wirePanelPopovers(). */
+#dataset-panel .panel-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+
+#dataset-panel .panel-action {
+  position: relative;
+}
+
+#dataset-panel .panel-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--brand-radius, 4px);
+  background: var(--brand-background, canvas);
+  color: var(--brand-primary, inherit);
+  cursor: pointer;
+}
+
+#dataset-panel .panel-action-btn:hover {
+  background: color-mix(in srgb, var(--brand-primary, canvastext) 10%, transparent);
+}
+
+#dataset-panel .panel-popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+  background: var(--brand-background, canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--brand-radius, 4px);
+  box-shadow: 0 4px 12px color-mix(in srgb, canvastext 20%, transparent);
+  padding: 0.75rem;
+  font-size: 0.85rem;
+}
+
+#dataset-panel .panel-popover.hidden {
+  display: none;
+}
+
+#dataset-panel .panel-download-formats {
+  display: flex;
+  gap: 0.5rem;
+}
+
+#dataset-panel .panel-opendap-copy-row {
+  display: flex;
+  align-items: center;
   gap: 0.4rem;
-  margin-top: 0.75rem;
+}
+
+#dataset-panel .panel-opendap-copy-row .panel-opendap-url {
+  flex: 1;
+  min-width: 0;
 }
 
 #dataset-panel .panel-opendap-url {
@@ -299,13 +361,21 @@ main {
   display: block;
 }
 
+#dataset-panel .panel-opendap-copy {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--brand-primary, #333);
+  border-radius: var(--brand-radius, 4px);
+  background: var(--brand-primary, #333);
+  color: #fff;
+  cursor: pointer;
+}
+
 #dataset-panel .panel-dates {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.75rem;
-  font-size: 0.85rem;
 }
 
 #dataset-panel .panel-dates input {

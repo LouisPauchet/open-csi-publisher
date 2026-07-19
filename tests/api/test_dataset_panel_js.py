@@ -58,9 +58,54 @@ def test_dataset_panel_js_shows_description_separately_from_the_metadata_list():
 
 
 def test_dataset_panel_js_only_scrolls_the_metadata_list():
-    # title/description and the dates/links stay in "panel-fixed" blocks;
-    # only "panel-meta-scroll" (the metadata <ul>) is meant to scroll — see
-    # the matching #dataset-panel .panel-meta-scroll rule in site.css
+    # title/description stay in a "panel-fixed" block; only "panel-meta-scroll"
+    # (the metadata <ul>) is meant to scroll — see the matching
+    # #dataset-panel .panel-meta-scroll rule in site.css
     content = PANEL_JS.read_text(encoding="utf-8")
     assert "panel-fixed" in content
     assert "panel-meta-scroll" in content
+
+
+def test_dataset_panel_js_shows_three_compact_action_icons_after_the_title():
+    # Download, OPeNDAP, and metadata/deployments (JSON) are each a single
+    # icon button, not long inline links — collapsed so the panel doesn't eat
+    # vertical space that the (often long) metadata list needs.
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-actions" in content
+    assert "panel-download-btn" in content
+    assert "panel-opendap-btn" in content
+    assert "panel-json-btn" in content
+    # the actions row is built into the same fixed block as the <h3>, right
+    # after it, before the id/platform-type line and description
+    title_pos = content.index("<h3>")
+    actions_pos = content.index("panel-actions")
+    id_line_pos = content.index("escapeHtml(dataset.id)")
+    assert title_pos < actions_pos < id_line_pos
+
+
+def test_dataset_panel_js_download_popover_offers_dates_and_both_formats():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-download-popover" in content
+    assert "panel-start" in content
+    assert "panel-end" in content
+    assert "panel-download-nc" in content
+    assert "panel-download-csv" in content
+
+
+def test_dataset_panel_js_opendap_popover_offers_a_copy_button():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-opendap-popover" in content
+    assert "panel-opendap-copy" in content
+    assert "clipboard" in content.lower()
+
+
+def test_dataset_panel_js_json_popover_links_metadata_and_deployment_history():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-json-popover" in content
+    assert "/deployments" in content
+
+
+def test_dataset_panel_js_popovers_start_hidden_and_close_on_outside_click():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert '"panel-popover panel-download-popover hidden"' in content
+    assert "closeAllPopovers" in content
