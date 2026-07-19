@@ -80,6 +80,18 @@ def _resolve_raw_columns_needed(
     return raw_names
 
 
+def resolve_time_coverage(
+    index_entries: list[FileRecord],
+) -> tuple[datetime, datetime] | None:
+    """Overall observed time range across a dataset's file index, or None if no
+    file has any data yet (e.g. a brand-new, still-empty live file)."""
+    starts = [e.time_start for e in index_entries if e.time_start is not None]
+    ends = [e.time_end for e in index_entries if e.time_end is not None]
+    if not starts or not ends:
+        return None
+    return min(starts), max(ends)
+
+
 def _build_global_attrs(config: DatasetConfig) -> dict[str, Any]:
     attrs: dict[str, Any] = {
         k: v for k, v in config.metadata.model_dump().items() if v is not None

@@ -6,23 +6,33 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
+from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
 from open_csi_publisher.sources import DatasetLocation
 from open_csi_publisher.state.models import Base
 
 
 @pytest.fixture
-def locations(sample_config_dir, fixture_config_dir):
+def locations(sample_config_dir, fixture_config_dir, mount_root):
     """The 3 real sample datasets plus the test-only restricted fixture, combined
-    into one DatasetLocation list — used across the listing service, JSON route,
-    HTML page, and app-factory tests so restricted-exclusion and the
-    arbitrary-metadata filter always have something real to exercise."""
+    into one DatasetLocation list — used across the listing service, JSON/HTML/
+    detail routes, and app-factory tests so restricted-exclusion and the
+    arbitrary-metadata filter always have something real to exercise.
+
+    The restricted fixture points at real Isfjord data (see
+    tests/fixtures/configs/restricted_station.json) specifically so
+    data-touching routes (detail's time_coverage, /data, downloads) can be
+    tested end-to-end for an authenticated user too, not just gated for an
+    anonymous one — a schema-only stub with no backing files can't exercise
+    that path.
+    """
     real_provider = FolderConfigProvider(sample_config_dir)
     fixture_provider = FolderConfigProvider(fixture_config_dir)
+    data_provider = LoggerNetDataProvider(mount_root)
     return [
-        DatasetLocation("real", ds_id, real_provider, None)
+        DatasetLocation("real", ds_id, real_provider, data_provider)
         for ds_id in real_provider.list_dataset_ids()
     ] + [
-        DatasetLocation("fixtures", ds_id, fixture_provider, None)
+        DatasetLocation("fixtures", ds_id, fixture_provider, data_provider)
         for ds_id in fixture_provider.list_dataset_ids()
     ]
 
