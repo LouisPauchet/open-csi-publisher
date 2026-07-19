@@ -22,10 +22,12 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="site-title" href="/">
-      {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
-      <span>{{ branding.site_name }}</span>
-    </a>
+    <div class="site-header-inner">
+      <a class="site-title" href="/">
+        {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
+        <span>{{ branding.site_name }}</span>
+      </a>
+    </div>
   </header>
   <main>
     {% block content %}{% endblock %}

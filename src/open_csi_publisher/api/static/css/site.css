@@ -39,22 +39,34 @@ a:hover {
 
 .site-header {
   flex: 0 0 auto;
-  padding: 1rem 1.5rem;
+  padding: 1rem 0;
   border-bottom: 1px solid var(--border);
   background: var(--brand-header-background, transparent);
+}
+
+/* Matches main's max-width/centering/side-padding exactly, so the logo and
+   title line up with the page content below rather than the header's
+   full-bleed background edge. */
+.site-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
 }
 
 .site-title {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-weight: 600;
+  gap: 1.75rem;
+  font-weight: 500;
+  font-size: 25px;
+  padding: 10px;
   text-decoration: none;
-  color: var(--brand-primary, inherit);
+  color: var(--brand-secondary, inherit);
 }
 
 .site-logo {
-  height: 36px;
+  height: 70px;
   width: auto;
 }
 
