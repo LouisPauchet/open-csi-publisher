@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class ExtraDimension(BaseModel):
@@ -81,6 +81,19 @@ class Deployment(BaseModel):
     platform_name: str | None = None
     instrument_config: str | None = None
     notes: str | None = None
+
+    @field_validator("start", "end")
+    @classmethod
+    def _naive_utc(cls, v: datetime | None) -> datetime | None:
+        # Raw LoggerNet timestamps carry no timezone and are treated as UTC by
+        # convention (implementation_plan.md real-data findings). A deployment
+        # boundary written with an explicit offset (e.g. trailing "Z") is converted
+        # to UTC and then made naive, so it compares directly against the naive
+        # `time` coordinate parsed from the data instead of raising a
+        # naive-vs-aware TypeError.
+        if v is not None and v.tzinfo is not None:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 
 class LoggerNetSourceConfig(BaseModel):
