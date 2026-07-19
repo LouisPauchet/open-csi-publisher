@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timezone
-from importlib.metadata import version
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -104,12 +103,13 @@ def get_publish_month(
         config_provider=location.config_provider,
         data_provider=location.data_provider,
     )
-
-    current_version = repository.get_current_config_version(session, dataset_id)
-    software_version = version("open-csi-publisher")
-    ds.attrs["processing_software_version"] = software_version
-    ds.attrs["config_hash"] = current_version.hash
-    ds.attrs["config_version_timestamp"] = current_version.created_at.isoformat()
+    # build_dataset() already attached processing_software_version/config_hash/
+    # config_version_timestamp/history to every build (core/builder.py) — read
+    # them back rather than re-querying, so there's no risk of this endpoint's
+    # own lookup landing on a config version newer than the one actually baked
+    # into the data it just built.
+    software_version = ds.attrs["processing_software_version"]
+    config_hash = ds.attrs["config_hash"]
 
     filename = render_file_naming(
         config.output.file_naming,
@@ -127,7 +127,7 @@ def get_publish_month(
         session,
         dataset_id=dataset_id,
         period=period,
-        config_hash=current_version.hash,
+        config_hash=config_hash,
         software_version=software_version,
         cached_file_path=str(cached_path),
     )

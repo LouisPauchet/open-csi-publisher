@@ -48,16 +48,46 @@ function showDatasetPanel(dataset) {
     (dataset.platform_type ? ` &middot; ${escapeHtml(dataset.platform_type)}` : "") +
     `</p>` +
     `<ul class="panel-meta">${metaItems}</ul>` +
+    `<div class="panel-dates">` +
+    `<label>From <input type="date" class="panel-start"></label>` +
+    `<label>To <input type="date" class="panel-end"></label>` +
+    `<span class="panel-dates-hint">(leave blank for the full record)</span>` +
+    `</div>` +
     `<div class="panel-links">` +
     `<a href="/datasets/${id}" target="_blank" rel="noopener">Full metadata (JSON)</a>` +
     `<a href="/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
     `<a href="/opendap/datasets/${id}/opendap.dds" target="_blank" rel="noopener">View OPeNDAP structure (DDS)</a>` +
     `<span>OPeNDAP URL (open in Panoply / xarray / other DAP clients):</span>` +
     `<code class="panel-opendap-url">${escapeHtml(opendapUrl)}</code>` +
-    `<a href="/datasets/${id}/download.nc">Download NetCDF (.nc)</a>` +
-    `<a href="/datasets/${id}/download.csv">Download CSV</a>` +
+    `<a class="panel-download-nc" href="/datasets/${id}/download.nc">Download NetCDF (.nc)</a>` +
+    `<a class="panel-download-csv" href="/datasets/${id}/download.csv">Download CSV</a>` +
     `</div>`;
   panel.classList.remove("hidden");
+
+  wireDateRangeToDownloadLinks(panel, id);
+}
+
+// The date inputs update the download links' href on every change, so the
+// links always reflect whatever range is currently selected — no separate
+// "apply" step, and the links still work perfectly well with no dates chosen
+// (full record, matching download.nc/.csv's own start/end-optional design).
+function wireDateRangeToDownloadLinks(panel, encodedId) {
+  const startInput = panel.querySelector(".panel-start");
+  const endInput = panel.querySelector(".panel-end");
+  const ncLink = panel.querySelector(".panel-download-nc");
+  const csvLink = panel.querySelector(".panel-download-csv");
+
+  function update() {
+    const params = new URLSearchParams();
+    if (startInput.value) params.set("start", startInput.value);
+    if (endInput.value) params.set("end", endInput.value);
+    const query = params.toString();
+    ncLink.href = `/datasets/${encodedId}/download.nc` + (query ? `?${query}` : "");
+    csvLink.href = `/datasets/${encodedId}/download.csv` + (query ? `?${query}` : "");
+  }
+
+  startInput.addEventListener("change", update);
+  endInput.addEventListener("change", update);
 }
 
 function escapeHtml(text) {

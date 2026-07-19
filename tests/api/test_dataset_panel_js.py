@@ -34,3 +34,18 @@ def test_dataset_panel_js_escapes_html_rather_than_interpolating_raw_metadata():
     # interpolated into innerHTML unescaped (a stored-XSS-shaped mistake)
     content = PANEL_JS.read_text(encoding="utf-8")
     assert "escapeHtml" in content
+
+
+def test_dataset_panel_js_offers_a_date_range_for_downloads():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert 'type="date"' in content
+    assert "panel-start" in content
+    assert "panel-end" in content
+
+
+def test_dataset_panel_js_updates_download_links_from_the_date_range():
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-download-nc" in content
+    assert "panel-download-csv" in content
+    assert "URLSearchParams" in content
+    assert "addEventListener" in content

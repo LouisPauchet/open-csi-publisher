@@ -20,6 +20,7 @@ from open_csi_publisher.api.schemas import (
 )
 from open_csi_publisher.core.builder import build_dataset, resolve_time_coverage
 from open_csi_publisher.core.config_versioning import get_versioned_config
+from open_csi_publisher.core.export import render_csv_with_metadata_header
 from open_csi_publisher.index.service import refresh_and_get_index
 from open_csi_publisher.sources import DatasetLocation
 
@@ -96,10 +97,9 @@ def get_dataset_data(
         config_provider=location.config_provider,
         data_provider=location.data_provider,
     )
-    df = ds.to_dataframe().reset_index()
-
     if format == "csv":
-        return PlainTextResponse(df.to_csv(index=False), media_type="text/csv")
+        return PlainTextResponse(render_csv_with_metadata_header(ds), media_type="text/csv")
+    df = ds.to_dataframe().reset_index()
     return _json_safe(df.to_dict(orient="list"))
 
 
@@ -157,9 +157,8 @@ def download_dataset_csv(
         config_provider=location.config_provider,
         data_provider=location.data_provider,
     )
-    csv_text = ds.to_dataframe().reset_index().to_csv(index=False)
     return PlainTextResponse(
-        csv_text,
+        render_csv_with_metadata_header(ds),
         media_type="text/csv",
         headers={
             "Content-Disposition": f'attachment; filename="{_download_basename(location.dataset_id, start, end)}.csv"'

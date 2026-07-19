@@ -3,76 +3,81 @@
 {% block title %}Datasets — UNIS Environmental Data Portal{% endblock %}
 
 {% block content %}
-<form method="get" id="filter-form" class="filter-form">
-  <input type="text" name="q" placeholder="Search title, institution, id…" value="{{ filters.q }}">
-
-  <select name="platform_type">
-    <option value="">All platform types</option>
-    <option value="fixed" {% if filters.platform_type == 'fixed' %}selected{% endif %}>Fixed</option>
-    <option value="mobile" {% if filters.platform_type == 'mobile' %}selected{% endif %}>Mobile</option>
-  </select>
-
-  <select name="standard_name">
-    <option value="">Any variable</option>
-    {% for name in facet_standard_names %}
-    <option value="{{ name }}" {% if name in filters.standard_name %}selected{% endif %}>{{ name }}</option>
-    {% endfor %}
-  </select>
-
-  <select name="meta_key">
-    <option value="">Any metadata field</option>
-    {% for key in facet_meta_keys %}
-    <option value="{{ key }}" {% if key == filters.meta_key %}selected{% endif %}>{{ key }}</option>
-    {% endfor %}
-  </select>
-  <input type="text" name="meta_value" placeholder="value…" value="{{ filters.meta_value }}">
-
-  <button type="submit">Filter</button>
-</form>
-
-<p class="result-count">{{ total }} dataset{{ 's' if total != 1 else '' }}</p>
-
 <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
-<div class="map-panel-row">
-  <div id="map"></div>
-  <div id="dataset-panel">
-    <p class="panel-placeholder">Select a dataset (row or map marker) to see its details and access links.</p>
+
+<div class="portal-layout">
+  <div class="portal-left">
+    <div id="map"></div>
+    <div id="dataset-panel">
+      <p class="panel-placeholder">Select a dataset (row or map marker) to see its details and access links.</p>
+    </div>
+  </div>
+
+  <div class="portal-right">
+    <form method="get" id="filter-form" class="filter-form">
+      <input type="text" name="q" placeholder="Search title, institution, id…" value="{{ filters.q }}">
+
+      <select name="platform_type">
+        <option value="">All platform types</option>
+        <option value="fixed" {% if filters.platform_type == 'fixed' %}selected{% endif %}>Fixed</option>
+        <option value="mobile" {% if filters.platform_type == 'mobile' %}selected{% endif %}>Mobile</option>
+      </select>
+
+      <select name="standard_name">
+        <option value="">Any variable</option>
+        {% for name in facet_standard_names %}
+        <option value="{{ name }}" {% if name in filters.standard_name %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="meta_key">
+        <option value="">Any metadata field</option>
+        {% for key in facet_meta_keys %}
+        <option value="{{ key }}" {% if key == filters.meta_key %}selected{% endif %}>{{ key }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="meta_value" placeholder="value…" value="{{ filters.meta_value }}">
+
+      <button type="submit">Filter</button>
+    </form>
+
+    <p class="result-count">{{ total }} dataset{{ 's' if total != 1 else '' }}</p>
+
+    <table class="dataset-table" id="dataset-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Platform</th>
+          <th>Variables</th>
+          <th>Metadata</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ds in datasets %}
+        <tr class="dataset-row"
+            data-id="{{ ds.id }}"
+            data-title="{{ ds.title }}"
+            data-search="{{ ([ds.id, ds.title, ds.institution or ''] + ds.metadata.values() | list) | join(' ') | lower }}"
+            data-platform-type="{{ ds.platform_type }}"
+            data-standard-names="{{ ds.standard_names | join(',') }}"
+            data-meta='{{ ds.metadata | tojson }}'
+            {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
+          <td>{{ ds.title }}</td>
+          <td>{{ ds.platform_type }}</td>
+          <td>{{ ds.standard_names | join(', ') }}</td>
+          <td>
+            {% for key, value in ds.metadata.items() %}
+            <span class="meta-kv"><strong>{{ key }}:</strong> {{ value }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">No datasets match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
-
-<table class="dataset-table" id="dataset-table">
-  <thead>
-    <tr>
-      <th>Title</th>
-      <th>Platform</th>
-      <th>Variables</th>
-      <th>Metadata</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for ds in datasets %}
-    <tr class="dataset-row"
-        data-id="{{ ds.id }}"
-        data-title="{{ ds.title }}"
-        data-search="{{ ([ds.id, ds.title, ds.institution or ''] + ds.metadata.values() | list) | join(' ') | lower }}"
-        data-platform-type="{{ ds.platform_type }}"
-        data-standard-names="{{ ds.standard_names | join(',') }}"
-        data-meta='{{ ds.metadata | tojson }}'
-        {% if ds.position %}data-lat="{{ ds.position.lat }}" data-lon="{{ ds.position.lon }}"{% endif %}>
-      <td>{{ ds.title }}</td>
-      <td>{{ ds.platform_type }}</td>
-      <td>{{ ds.standard_names | join(', ') }}</td>
-      <td>
-        {% for key, value in ds.metadata.items() %}
-        <span class="meta-kv"><strong>{{ key }}:</strong> {{ value }}</span>
-        {% endfor %}
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="4" class="empty">No datasets match these filters.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
 
 <script src="/static/vendor/leaflet/leaflet.js"></script>
 <script src="/static/js/filter.js" defer></script>

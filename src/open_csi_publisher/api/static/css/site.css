@@ -23,7 +23,7 @@ body {
 
 main {
   padding: 1.5rem;
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -82,23 +82,34 @@ main {
   font-style: italic;
 }
 
-.map-panel-row {
+/* Left column: map (upper) + dataset detail panel (lower). Right column: search/
+   filter form + dataset table. The left column sticks while the right one scrolls,
+   so the map and selected dataset's details stay visible against a long list. */
+.portal-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.4fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.portal-left {
   display: flex;
+  flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1rem;
-  align-items: stretch;
+  position: sticky;
+  top: 1rem;
+}
+
+.portal-right {
+  min-width: 0;
 }
 
 #map {
-  flex: 3;
-  min-width: 0;
-  height: 420px;
+  height: 360px;
   border: 1px solid var(--border);
 }
 
 #dataset-panel {
-  flex: 2;
-  min-width: 260px;
   border: 1px solid var(--border);
   padding: 1rem;
   overflow-y: auto;
@@ -140,9 +151,25 @@ main {
   display: block;
 }
 
-@media (max-width: 700px) {
-  .map-panel-row {
-    flex-direction: column;
+#dataset-panel .panel-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+#dataset-panel .panel-dates input {
+  padding: 0.25rem 0.4rem;
+}
+
+@media (max-width: 900px) {
+  .portal-layout {
+    grid-template-columns: 1fr;
+  }
+  .portal-left {
+    position: static;
   }
   #dataset-panel {
     max-height: none;

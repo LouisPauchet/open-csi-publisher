@@ -148,8 +148,19 @@ def test_data_csv_format_is_parseable(client):
     )
     assert response.status_code == 200
     assert "text/csv" in response.headers["content-type"]
-    df = pd.read_csv(io.StringIO(response.text))
+    df = pd.read_csv(io.StringIO(response.text), comment="#")
     assert "air_temperature" in df.columns
+
+
+def test_data_csv_format_includes_metadata_header(client):
+    response = client.get(
+        "/datasets/hanna_resvoll_10min/data", params={"format": "csv"}
+    )
+    assert response.text.startswith("#")
+    assert "# title: UNIS AGF Boat Hanna Resvoll AWS" in response.text
+    assert "# processing_software_version:" in response.text
+    assert "# config_hash:" in response.text
+    assert "# history:" in response.text
 
 
 def test_data_time_window_narrows_result(client):
@@ -191,8 +202,15 @@ def test_download_nc_round_trips_via_xarray(client):
 def test_download_csv_is_parseable(client):
     response = client.get("/datasets/hanna_resvoll_10min/download.csv")
     assert response.status_code == 200
-    df = pd.read_csv(io.StringIO(response.text))
+    df = pd.read_csv(io.StringIO(response.text), comment="#")
     assert "air_temperature" in df.columns
+
+
+def test_download_csv_includes_metadata_header(client):
+    response = client.get("/datasets/hanna_resvoll_10min/download.csv")
+    assert response.text.startswith("#")
+    assert "# title: UNIS AGF Boat Hanna Resvoll AWS" in response.text
+    assert "# config_hash:" in response.text
 
 
 def test_download_nc_404_for_restricted_anonymous(client):
