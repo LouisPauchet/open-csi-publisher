@@ -1,0 +1,75 @@
+:root {
+  color-scheme: light dark;
+  --border: #d0d5da;
+  --muted: #666;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.site-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-title {
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-form input,
+.filter-form select,
+.filter-form button {
+  padding: 0.4rem 0.6rem;
+  font-size: 1rem;
+}
+
+.result-count {
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+.dataset-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dataset-table th,
+.dataset-table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.dataset-row.hidden {
+  display: none;
+}
+
+.meta-kv {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}
