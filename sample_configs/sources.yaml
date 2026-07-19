@@ -1,0 +1,6 @@
+sources:
+  - id: loggernet_test_server
+    type: loggernet
+    config_provider: folder
+    config_location: sample_configs/
+    data_location: mount/loggernet-test-server/

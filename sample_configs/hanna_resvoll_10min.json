@@ -1,0 +1,41 @@
+{
+  "id": "hanna_resvoll_10min",
+  "source_type": "loggernet",
+  "access": "public",
+  "source_config": {
+    "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat*",
+    "table_name": "Table_10min"
+  },
+  "variables": [
+    {"raw_name": "latitude", "standard_name": "latitude", "units": "degrees_north"},
+    {"raw_name": "longitude", "standard_name": "longitude", "units": "degrees_east"},
+    {"raw_name": "SOG", "units": "m/s"},
+    {"raw_name": "true_heading", "units": "degrees"},
+    {"raw_name": "heading_source", "dtype": "string"},
+    {"raw_name": "position_source", "dtype": "string"},
+    {"raw_name": "sensor_status"},
+    {"raw_name": "wind_speed_raw_Avg", "units": "m/s"},
+    {"raw_name": "wind_direction_raw_Avg", "units": "Deg"},
+    {"raw_name": "wind_speed_corrected_Avg", "standard_name": "wind_speed", "units": "m/s"},
+    {"raw_name": "wind_direction_corrected_Avg", "standard_name": "wind_from_direction", "units": "Deg"},
+    {"raw_name": "temperature_Avg", "standard_name": "air_temperature", "units": "degC"},
+    {"raw_name": "relative_humidity_Avg", "standard_name": "relative_humidity", "units": "%"},
+    {"raw_name": "air_pressure_Avg", "standard_name": "air_pressure", "units": "hPa"},
+    {"raw_name": "PAR_Avg", "standard_name": "surface_downwelling_photosynthetic_radiative_flux_in_air", "units": "micromol/m2/s"},
+    {"raw_name": "SST_Avg", "standard_name": "sea_surface_temperature", "units": "degC"}
+  ],
+  "platform_type": "mobile",
+  "deployments": [
+    {"start": "2026-05-18T00:00:00Z", "end": null, "platform_name": "Hanna Resvoll"}
+  ],
+  "metadata": {
+    "title": "UNIS AGF Boat Hanna Resvoll AWS",
+    "institution": "University Centre in Svalbard (UNIS)",
+    "department": "Arctic Geophysics",
+    "standard_name_vocabulary": "CF-1.10"
+  },
+  "output": {
+    "file_naming": "{station}_{table}_{yyyy}-{mm}.nc",
+    "publish": false
+  }
+}

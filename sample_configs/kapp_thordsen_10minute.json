@@ -1,0 +1,33 @@
+{
+  "id": "kapp_thordsen_10minute",
+  "source_type": "loggernet",
+  "access": "public",
+  "source_config": {
+    "file_pattern": "UNIS_AGF_Kapp_Thordsen_AWS/UNIS_AGF_Kapp_Thordsen_AWS_Table_10minute.dat*",
+    "table_name": "Table_10minute"
+  },
+  "variables": [
+    {"raw_name": "wind_speed_Avg", "standard_name": "wind_speed", "units": "m/s"},
+    {"raw_name": "wind_direction_Avg", "standard_name": "wind_from_direction", "units": "Deg"},
+    {"raw_name": "air_pressure_Avg", "standard_name": "air_pressure", "units": "hPa"},
+    {"raw_name": "relative_humidity_Avg", "standard_name": "relative_humidity", "units": "%"},
+    {"raw_name": "temperature_Avg", "standard_name": "air_temperature", "units": "degC"},
+    {"raw_name": "dewpoint_temperature_Avg", "standard_name": "dew_point_temperature", "units": "degC"},
+    {"raw_name": "surface_temperature_Avg", "standard_name": "surface_temperature", "units": "degC"},
+    {"raw_name": "MetSENS_Status", "dtype": "string"}
+  ],
+  "platform_type": "fixed",
+  "deployments": [
+    {"start": "2020-01-01T00:00:00Z", "end": null, "lat": 78.4567, "lon": 15.3239, "elevation": 5}
+  ],
+  "metadata": {
+    "title": "UNIS AGF Kapp Thordsen AWS",
+    "institution": "University Centre in Svalbard (UNIS)",
+    "department": "Arctic Geophysics",
+    "standard_name_vocabulary": "CF-1.10"
+  },
+  "output": {
+    "file_naming": "{station}_{table}_{yyyy}-{mm}.nc",
+    "publish": false
+  }
+}

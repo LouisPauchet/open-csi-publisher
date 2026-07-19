@@ -1,0 +1,24 @@
+{
+  "id": "restricted_station",
+  "source_type": "loggernet",
+  "access": "restricted",
+  "source_config": {
+    "file_pattern": "restricted_station/*.dat*"
+  },
+  "variables": [
+    {"raw_name": "AirT_C", "standard_name": "air_temperature", "units": "degC"}
+  ],
+  "platform_type": "fixed",
+  "deployments": [
+    {"start": "2020-01-01T00:00:00Z", "end": null, "lat": 78.2, "lon": 15.6, "elevation": 20}
+  ],
+  "metadata": {
+    "title": "Restricted Test Station",
+    "institution": "University Centre in Svalbard (UNIS)",
+    "department": "Test Fixtures"
+  },
+  "output": {
+    "file_naming": "{station}.nc",
+    "publish": false
+  }
+}

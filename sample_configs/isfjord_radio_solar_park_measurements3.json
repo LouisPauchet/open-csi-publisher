@@ -1,0 +1,43 @@
+{
+  "id": "isfjord_radio_solar_park_measurements3",
+  "source_type": "loggernet",
+  "access": "public",
+  "source_config": {
+    "file_pattern": "UNIS_AT_Example_Solar_Park_AWS/UNIS_AT_Example_Solar_Park_AWS_Measurements_3.dat*",
+    "table_name": "Measurements_3"
+  },
+  "variables": [
+    {"raw_name": "AirT_C", "standard_name": "air_temperature", "units": "degC"},
+    {"raw_name": "RH", "standard_name": "relative_humidity", "units": "%"},
+    {"raw_name": "BP_mbar", "standard_name": "air_pressure", "units": "mbar"},
+    {"raw_name": "WS_ms", "standard_name": "wind_speed", "units": "m/s"},
+    {"raw_name": "WindDir", "standard_name": "wind_from_direction", "units": "degrees"},
+    {"raw_name": "DP_C", "standard_name": "dew_point_temperature", "units": "degC"},
+    {"raw_name": "MetSENS_Status", "dtype": "string"},
+    {
+      "extra_dimension": {"name": "sensor_channel", "units": "1"},
+      "members": [
+        {"raw_name": "pyr_ch1", "dimension_value": 1},
+        {"raw_name": "pyr_ch2", "dimension_value": 2},
+        {"raw_name": "pyr_ch3", "dimension_value": 3},
+        {"raw_name": "pyr_ch4", "dimension_value": 4}
+      ],
+      "standard_name": "surface_downwelling_shortwave_flux_in_air",
+      "units": "W m-2"
+    }
+  ],
+  "platform_type": "fixed",
+  "deployments": [
+    {"start": "2021-01-01T00:00:00Z", "end": null, "lat": 78.0, "lon": 15.0, "elevation": 20}
+  ],
+  "metadata": {
+    "title": "UNIS AT Example Solar Park AWS",
+    "institution": "University Centre in Svalbard (UNIS)",
+    "department": "Arctic Technology",
+    "standard_name_vocabulary": "CF-1.10"
+  },
+  "output": {
+    "file_naming": "{station}_{table}_{yyyy}-{mm}.nc",
+    "publish": false
+  }
+}
