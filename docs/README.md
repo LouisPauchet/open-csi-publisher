@@ -4,6 +4,10 @@
 - [config_format.md](config_format.md) — the dataset config JSON format
 - [adding_a_dataset.md](adding_a_dataset.md) — how to add a new dataset config and verify it
 - [running_locally.md](running_locally.md) — environment variables, running the server, manual QA checklist
+- [rest_api.md](rest_api.md) — the full REST API (listing, detail, deployments, data, downloads)
+- [opendap.md](opendap.md) — OPeNDAP URLs, caching, a known client-interop caveat
+- [publish_endpoint.md](publish_endpoint.md) — the API-key-protected monthly-NetCDF publish endpoint
+- [cli.md](cli.md) — the `open-csi-config` config-creation CLI
 - [architecture.md](architecture.md) — module map and how this code maps onto the system design
 
 The overall system design (config layers, providers, the file index, OPeNDAP/REST/

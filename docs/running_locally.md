@@ -6,8 +6,11 @@
 uv run uvicorn open_csi_publisher.api.app:create_app --factory --reload
 ```
 
-Then visit `http://127.0.0.1:8000/` for the dataset listing page, or
-`http://127.0.0.1:8000/datasets` for the JSON API.
+Then visit `http://127.0.0.1:8000/` for the dataset listing page (which also embeds the
+station map and a click-to-select detail panel), or `http://127.0.0.1:8000/map` for the
+map on its own. `http://127.0.0.1:8000/datasets` is the JSON API — see
+[rest_api.md](rest_api.md) for the full REST surface, [opendap.md](opendap.md) for
+OPeNDAP, and [publish_endpoint.md](publish_endpoint.md) for the publish endpoint.
 
 On first request, this creates `local/state.db` (a SQLite file, gitignored) holding
 config version snapshots and the file index — safe to delete at any time to reset local
@@ -24,6 +27,8 @@ sample data present under `mount/`.
 | `SOURCES_FILE` | `sample_configs/sources.yaml` | Path (relative to `BASE_DIR`) to the sources manifest. |
 | `BASE_DIR` | `.` | Base directory `SOURCES_FILE` and each source's `config_location`/`data_location` are resolved against. Set this to an absolute path if running from somewhere other than the repo root. |
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET_KEY` | unset | Inert placeholders for the future Entra ID/OIDC integration. While `OIDC_ISSUER` is unset (the default), every caller is anonymous and restricted datasets are always hidden — there is currently no way to log in. |
+| `PUBLISH_API_KEYS_RAW` | `""` (empty — no keys, endpoint always 401s) | Comma-separated static API keys for the publish endpoint. See [publish_endpoint.md](publish_endpoint.md). |
+| `PUBLISH_CACHE_DIR` | `local/publish_cache` | Where generated monthly NetCDF files are cached. |
 
 ## Manual QA checklist
 
@@ -43,3 +48,13 @@ that the client-side script actually runs correctly in a browser. After any chan
 7. Submit the form (press Enter, or click Filter) with JS enabled — confirm the URL
    updates with query params and a full reload still shows the same filtered result the
    client-side JS was already showing.
+
+After any change to `static/js/map.js` or `static/js/dataset_panel.js`, also check:
+
+8. On `/`, fixed stations show a map marker at their configured position; the mobile
+   dataset shows a marker at its most recent real position plus a recent track line.
+9. Typing a filter that hides a row also hides that dataset's map marker (and
+   re-showing the row re-shows the marker) — `filter.js` and `map.js` staying in sync.
+10. Clicking a table row (or a map marker) opens the detail panel with the right title,
+    metadata, and three working links: OPeNDAP structure (DDS), download NetCDF,
+    download CSV — and highlights the selected row.

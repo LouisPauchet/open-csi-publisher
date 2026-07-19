@@ -16,10 +16,15 @@ explains the shape; read those files alongside it for concrete values.
 - `id` — must match the filename (`<id>.json`); this is how `FolderConfigProvider`
   resolves a dataset id to a file, without needing to parse every file's contents just
   to list what's available.
-- `source_type` — currently only `"loggernet"`.
+- `source_type` — `"loggernet"` or `"generic_csv"` (the latter is a minimal second
+  source type that exists to prove the plugin boundary works, not a real deployed UNIS
+  source — see `tests/fixtures/generic_csv/` for its shape; every real config in
+  `sample_configs/` is `"loggernet"`).
 - `access` — `"public"` or `"restricted"`. Restricted datasets are invisible in listings
-  to anonymous callers (see [architecture.md](architecture.md) on the auth seam).
-- `source_config` — source-type-specific (see below).
+  and unreachable through every other endpoint (detail, data, downloads, OPeNDAP) for
+  anonymous callers (see `api/access.py`).
+- `source_config` — source-type-specific; its shape is validated against whichever
+  schema matches `source_type` (a discriminated union — see `architecture.md`).
 - `variables` — which raw columns become which output variables (see below).
 - `platform_type` — `"fixed"` or `"mobile"` (see below).
 - `deployments` — meaning depends on `platform_type`.
@@ -27,8 +32,9 @@ explains the shape; read those files alongside it for concrete values.
   **Arbitrary extra keys are allowed** (e.g. `department`, `project`) and are exactly
   what the dataset listing page's metadata filter searches over — this is deliberate,
   not a schema gap.
-- `output.file_naming` — filename template for generated monthly files (used by the
-  future publish endpoint, not yet built).
+- `output.file_naming` — filename template for generated monthly files, used by the
+  [publish endpoint](publish_endpoint.md) (e.g. `{station}_{table}_{yyyy}-{mm}.nc`).
+- `output.publish` — whether this dataset is exposed via the publish endpoint at all.
 
 ## `source_config` (LoggerNet)
 
