@@ -34,13 +34,13 @@ class DataProvider(ABC):
 
     @abstractmethod
     def get_file_index(
-        self, source_config: dict[str, Any], previous: Sequence[FileRecord] = ()
+        self, source_config: Any, previous: Sequence[FileRecord] = ()
     ) -> list[FileRecord]: ...
 
     @abstractmethod
     def read_range(
         self,
-        source_config: dict[str, Any],
+        source_config: Any,
         files: Sequence[FileRecord],
         start: datetime | None,
         end: datetime | None,

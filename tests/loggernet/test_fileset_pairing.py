@@ -175,3 +175,20 @@ def test_reconcile_live_only_dataset_is_passthrough(mount_root):
     assert combined.sizes["time"] == live.n_rows
     assert combined["time"].values[0] == np.datetime64(live.time_start)
     assert combined["time"].values[-1] == np.datetime64(live.time_end)
+
+
+@requires_mount
+def test_reconcile_archived_only_when_query_predates_live_file(mount_root):
+    # a query covering only an old window can be answered from archived files
+    # alone, with the live file never even opened
+    archived = parse_toa5_file(
+        mount_root / KAPP_THORDSEN / "UNIS_AGF_Kapp_Thordsen_AWS_Table_10minute_Historical.dat"
+    )
+    combined = reconcile_fileset(archived=[archived], live=None)
+    assert combined.sizes["time"] <= archived.n_rows
+    assert "surface_temperature_Avg" not in combined.data_vars
+
+
+def test_reconcile_requires_at_least_one_file():
+    with pytest.raises(ValueError):
+        reconcile_fileset(archived=[], live=None)

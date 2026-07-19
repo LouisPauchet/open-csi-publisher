@@ -52,17 +52,27 @@ def _is_archived(path: Path, historical_suffix: str) -> bool:
 
 
 def reconcile_fileset(
-    *, archived: Sequence[ParsedToa5File], live: ParsedToa5File
+    *, archived: Sequence[ParsedToa5File], live: ParsedToa5File | None
 ) -> xr.Dataset:
-    """Combine a live file with zero or more archived files into one continuous
-    time series (implementation_plan.md real-data findings): archived files are
-    ordered by their own parsed time_start (not filename), then the live file last;
-    an outer join on variable name handles column drift automatically (a column
-    present in only one file becomes NaN outside that file's time range); exact-
-    timestamp collisions are resolved in favor of the live file; real gaps between
-    files are left as gaps, never interpolated.
+    """Combine zero-or-more archived files with an optional live file into one
+    continuous time series (implementation_plan.md real-data findings): archived
+    files are ordered by their own parsed time_start (not filename), then the live
+    file last if present; an outer join on variable name handles column drift
+    automatically (a column present in only one file becomes NaN outside that
+    file's time range); exact-timestamp collisions are resolved in favor of
+    whichever file was concatenated later (the live file, when present); real gaps
+    between files are left as gaps, never interpolated.
+
+    `live` is optional because a query covering only an old time window may only
+    need archived files at all (see the core builder's file selection, which skips
+    the live file entirely when the requested range predates it).
     """
-    ordered = sorted(archived, key=lambda p: p.time_start or datetime.min) + [live]
+    ordered = sorted(archived, key=lambda p: p.time_start or datetime.min)
+    if live is not None:
+        ordered = [*ordered, live]
+    if not ordered:
+        raise ValueError("reconcile_fileset requires at least one parsed file")
+
     combined = xr.concat(
         [p.dataset for p in ordered],
         dim="time",
