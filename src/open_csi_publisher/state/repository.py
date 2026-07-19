@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.core.models import FileRecord
-from open_csi_publisher.state.models import ConfigVersion, FileIndexEntry
+from open_csi_publisher.state.models import ConfigVersion, FileIndexEntry, PublishLog
 
 
 def get_current_config_version(session: Session, dataset_id: str) -> ConfigVersion | None:
@@ -60,6 +60,34 @@ def upsert_file_index_entry(session: Session, dataset_id: str, record: FileRecor
         existing.variables = record.variables
         existing.status = record.status
     session.flush()
+
+
+def get_publish_log_entry(session: Session, dataset_id: str, period: str) -> PublishLog | None:
+    stmt = select(PublishLog).where(
+        PublishLog.dataset_id == dataset_id, PublishLog.period == period
+    )
+    return session.scalars(stmt).first()
+
+
+def record_publish_log_entry(
+    session: Session,
+    *,
+    dataset_id: str,
+    period: str,
+    config_hash: str,
+    software_version: str,
+    cached_file_path: str,
+) -> PublishLog:
+    entry = PublishLog(
+        dataset_id=dataset_id,
+        period=period,
+        config_hash=config_hash,
+        software_version=software_version,
+        cached_file_path=cached_file_path,
+    )
+    session.add(entry)
+    session.flush()
+    return entry
 
 
 def _to_file_record(entry: FileIndexEntry) -> FileRecord:

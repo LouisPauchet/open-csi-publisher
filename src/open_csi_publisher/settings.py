@@ -21,5 +21,16 @@ class Settings(BaseSettings):
     oidc_client_secret: str | None = None
     session_secret_key: str | None = None
 
+    # Publish endpoint (implementation_plan.md §11): a separate, simpler
+    # static-API-key mechanism, not the OIDC session flow above — a small
+    # number of trusted server-to-server consumers (the data center), not
+    # end users. Comma-separated since env vars can't carry a native list.
+    publish_api_keys_raw: str = ""
+    publish_cache_dir: str = "local/publish_cache"
+
+    @property
+    def publish_api_keys(self) -> list[str]:
+        return [key.strip() for key in self.publish_api_keys_raw.split(",") if key.strip()]
+
 
 settings = Settings()

@@ -108,3 +108,40 @@ def test_file_index_unique_constraint_on_dataset_and_file_name(db_session):
     )
     with pytest.raises(IntegrityError):
         db_session.flush()
+
+
+def test_get_publish_log_entry_none_when_unrecorded(db_session):
+    assert repository.get_publish_log_entry(db_session, "station_a", "2026-01") is None
+
+
+def test_record_and_get_publish_log_entry(db_session):
+    repository.record_publish_log_entry(
+        db_session,
+        dataset_id="station_a",
+        period="2026-01",
+        config_hash="hash1",
+        software_version="0.1.0",
+        cached_file_path="local/publish_cache/station_a/2026-01.nc",
+    )
+    entry = repository.get_publish_log_entry(db_session, "station_a", "2026-01")
+    assert entry is not None
+    assert entry.config_hash == "hash1"
+    assert entry.cached_file_path == "local/publish_cache/station_a/2026-01.nc"
+
+
+def test_publish_log_entry_isolated_per_dataset_and_period(db_session):
+    repository.record_publish_log_entry(
+        db_session, dataset_id="station_a", period="2026-01",
+        config_hash="h1", software_version="0.1.0", cached_file_path="a.nc",
+    )
+    repository.record_publish_log_entry(
+        db_session, dataset_id="station_a", period="2026-02",
+        config_hash="h2", software_version="0.1.0", cached_file_path="b.nc",
+    )
+    repository.record_publish_log_entry(
+        db_session, dataset_id="station_b", period="2026-01",
+        config_hash="h3", software_version="0.1.0", cached_file_path="c.nc",
+    )
+    assert repository.get_publish_log_entry(db_session, "station_a", "2026-01").cached_file_path == "a.nc"
+    assert repository.get_publish_log_entry(db_session, "station_a", "2026-02").cached_file_path == "b.nc"
+    assert repository.get_publish_log_entry(db_session, "station_b", "2026-01").cached_file_path == "c.nc"

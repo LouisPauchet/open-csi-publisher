@@ -31,3 +31,23 @@ def test_database_url_overridable_via_env_var(monkeypatch):
 def test_oidc_issuer_overridable_via_env_var(monkeypatch):
     monkeypatch.setenv("OIDC_ISSUER", "https://login.microsoftonline.com/tenant-id/v2.0")
     assert Settings().oidc_issuer == "https://login.microsoftonline.com/tenant-id/v2.0"
+
+
+def test_publish_api_keys_defaults_to_empty_list(monkeypatch):
+    monkeypatch.delenv("PUBLISH_API_KEYS_RAW", raising=False)
+    assert Settings().publish_api_keys == []
+
+
+def test_publish_api_keys_parses_comma_separated_env_var(monkeypatch):
+    monkeypatch.setenv("PUBLISH_API_KEYS_RAW", "key-one, key-two,key-three")
+    assert Settings().publish_api_keys == ["key-one", "key-two", "key-three"]
+
+
+def test_publish_api_keys_drops_empty_entries(monkeypatch):
+    monkeypatch.setenv("PUBLISH_API_KEYS_RAW", "key-one,, ,key-two")
+    assert Settings().publish_api_keys == ["key-one", "key-two"]
+
+
+def test_publish_cache_dir_default(monkeypatch):
+    monkeypatch.delenv("PUBLISH_CACHE_DIR", raising=False)
+    assert Settings().publish_cache_dir == "local/publish_cache"
