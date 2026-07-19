@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from open_csi_publisher.api.deps import get_dataset_locations, get_db_session
+from open_csi_publisher.api.deps import get_dataset_location, get_dataset_locations, get_db_session
 from open_csi_publisher.state import repository
 from open_csi_publisher.state.models import Base
 
@@ -53,3 +55,14 @@ def test_get_dataset_locations_returns_the_real_sample_datasets():
         "kapp_thordsen_10minute",
         "hanna_resvoll_10min",
     }
+
+
+def test_get_dataset_location_returns_matching_location(locations):
+    location = get_dataset_location("hanna_resvoll_10min", locations=locations)
+    assert location.dataset_id == "hanna_resvoll_10min"
+
+
+def test_get_dataset_location_raises_404_for_unknown_id(locations):
+    with pytest.raises(HTTPException) as exc_info:
+        get_dataset_location("does_not_exist", locations=locations)
+    assert exc_info.value.status_code == 404

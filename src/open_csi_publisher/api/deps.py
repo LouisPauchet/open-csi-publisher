@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterator
 
+from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
@@ -32,3 +33,12 @@ def get_dataset_locations() -> list[DatasetLocation]:
     base_dir = Path(settings.base_dir)
     sources = load_sources(base_dir / settings.sources_file)
     return list_all_datasets(sources, base_dir=base_dir)
+
+
+def get_dataset_location(
+    dataset_id: str, locations: list[DatasetLocation] = Depends(get_dataset_locations)
+) -> DatasetLocation:
+    for location in locations:
+        if location.dataset_id == dataset_id:
+            return location
+    raise HTTPException(status_code=404)
