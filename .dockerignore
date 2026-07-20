@@ -9,9 +9,10 @@ __pycache__
 dist
 build
 
-# Runtime state / real data — mounted as volumes, never baked into the image
+# Runtime state / real data / config — mounted as volumes, never baked into the image
 local
 mount
+sample_configs
 
 # Not needed inside the image
 tests

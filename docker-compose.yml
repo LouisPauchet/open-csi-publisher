@@ -30,12 +30,12 @@ services:
       # Real source-station data (LoggerNet .dat/.dat.backup files) — never
       # baked into the image; read-only, the app only ever reads it.
       - ./mount:/app/mount:ro
-      # sample_configs/ is baked into the image as a default (see Dockerfile)
-      # but bind-mounted here too so config edits on the host take effect
-      # immediately, without an image rebuild — read-only for the same
-      # reason the app server is documented as read-only in docs/cli.md
-      # (open-csi-config, which writes configs, runs on the data-collection
-      # server, not here).
+      # Dataset configs + sources.yaml/branding.yaml — never baked into the
+      # image either (see Dockerfile); this mount is REQUIRED, not just a
+      # convenience overlay, or the container has no sources.yaml to read at
+      # all. Read-only for the same reason the app server is documented as
+      # read-only in docs/cli.md (open-csi-config, which writes configs, runs
+      # on the data-collection server, not here).
       - ./sample_configs:/app/sample_configs:ro
       # SQLite state db + generated publish-endpoint NetCDF cache — the
       # app's only writable, persisted state.

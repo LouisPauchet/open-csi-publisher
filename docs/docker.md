@@ -31,10 +31,14 @@ resulting image is ~555MB — the base `python:3.12-slim-bookworm` alone is ~190
 app's own dependency footprint (numpy/pandas/xarray/h5py/sqlalchemy/fastapi/xpublish) is
 the other ~365MB, which is in line for that stack.
 
-`sample_configs/` is baked into the image as a default (so the image runs standalone),
-but `docker-compose.yml` also bind-mounts it read-only over that, so editing configs on
-the host takes effect immediately — no rebuild needed, consistent with the app's own
-lazy config-versioning (hash-check) design.
+**No configuration is ever baked into the image** — `sample_configs/` (dataset configs,
+`sources.yaml`, `branding.yaml`) is supplied entirely via the `docker-compose.yml` bind
+mount below, same as `mount/` and `local/`. This keeps the built image
+environment-agnostic (safe to build once in CI and push to a registry, then run against
+any deployment's own config) and means editing configs on the host takes effect
+immediately, without a rebuild — consistent with the app's own lazy config-versioning
+(hash-check) design. The container has nothing usable to serve until a config directory
+is actually mounted over `/app/sample_configs`.
 
 ## Volumes (`docker-compose.yml`)
 
