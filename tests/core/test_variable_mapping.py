@@ -101,6 +101,38 @@ def test_extra_dimension_stacks_members_into_new_dimension():
     assert var.sel(height=30).values.tolist() == [9.0, 10.0, 11.0, 12.0]
 
 
+def test_extra_dimension_with_string_values_uses_object_dtype_not_fixed_width():
+    # A plain python list of strings assigned as coordinate values gets
+    # numpy's auto-inferred fixed-width "<U*" dtype by default. That dtype
+    # breaks OPeNDAP serving: opendap-protocol's generic array encoder dumps
+    # a fixed-width numpy string array's raw bytes straight onto the wire
+    # with no per-element DAP2 length prefix, producing a DATADDS response
+    # DAP clients reject as malformed ("NetCDF: Malformed or inaccessible
+    # DAP2 DATADDS or DAP4 DAP response"). object dtype (genuine per-element
+    # Python str) avoids that broken path — see variable_mapping.py.
+    raw = _ds(
+        wind_speed_raw_Avg=[1.0, 2.0, 3.0, 4.0],
+        wind_speed_raw_Max=[5.0, 6.0, 7.0, 8.0],
+        wind_speed_raw_Std=[0.1, 0.2, 0.3, 0.4],
+    )
+    spec = VariableSpec(
+        extra_dimension=ExtraDimension(name="statistics", units="1"),
+        members=[
+            VariableMember(raw_name="wind_speed_raw_Avg", dimension_value="average"),
+            VariableMember(raw_name="wind_speed_raw_Max", dimension_value="maximum"),
+            VariableMember(raw_name="wind_speed_raw_Std", dimension_value="standard_deviation"),
+        ],
+        standard_name="wind_speed",
+        units="m/s",
+    )
+
+    result = apply_variable_spec(raw, [spec])
+
+    assert result["statistics"].values.dtype == np.dtype(object)
+    assert list(result["statistics"].values) == ["average", "maximum", "standard_deviation"]
+    assert result["wind_speed"].sel(statistics="maximum").values.tolist() == [5.0, 6.0, 7.0, 8.0]
+
+
 def test_extra_dimension_missing_member_column_is_nan_not_dropped():
     # e.g. the 30m sensor didn't exist yet for this time window/file
     raw = _ds(

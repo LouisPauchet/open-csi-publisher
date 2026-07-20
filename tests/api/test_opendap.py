@@ -79,3 +79,36 @@ def test_unknown_dataset_404(opendap_client):
 
 def test_restricted_dataset_404(opendap_client):
     assert opendap_client.get("/datasets/restricted_station/opendap.dds").status_code == 404
+
+
+def _parse_dap2_string_array(dods_bytes: bytes) -> list[str]:
+    """Decode a DAP2 String-array .dods payload per the spec (and matching
+    pydap's reference encoder): a single 4-byte element count, then per
+    element a 4-byte length prefix, the raw bytes, and zero-padding up to
+    the next 4-byte boundary."""
+    body = dods_bytes[dods_bytes.index(b"Data:\r\n") + len(b"Data:\r\n") :]
+    count = int.from_bytes(body[0:4], "big")
+    pos = 4
+    values = []
+    for _ in range(count):
+        length = int.from_bytes(body[pos : pos + 4], "big")
+        pos += 4
+        values.append(body[pos : pos + length].decode("ascii"))
+        pos += length + (-length % 4)
+    return values
+
+
+def test_dods_response_correctly_encodes_a_string_valued_dimension(opendap_client):
+    # Regression test for the "NetCDF: Malformed or inaccessible DAP2
+    # DATADDS or DAP4 DAP response" bug: opendap_protocol's generic array
+    # encoder mishandles DAP2 String arrays (doubles the length header like
+    # a numeric array, then dumps fixed-width bytes with no per-element
+    # length prefix). api/opendap.py patches this at import time; this
+    # fetches the raw .dods bytes for a string-valued extra_dimension
+    # coordinate and decodes them per the actual DAP2 spec to confirm the
+    # values round-trip correctly, rather than just checking for a 200.
+    response = opendap_client.get(
+        "/datasets/string_extra_dimension_station/opendap.dods?statistics"
+    )
+    assert response.status_code == 200
+    assert _parse_dap2_string_array(response.content) == ["average", "maximum"]

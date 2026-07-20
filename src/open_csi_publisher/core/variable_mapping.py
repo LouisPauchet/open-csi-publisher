@@ -65,6 +65,18 @@ def _stack_extra_dimension(raw: xr.Dataset, spec: VariableSpec) -> xr.DataArray 
 
     dim_name = spec.extra_dimension.name
     stacked = xr.concat(member_arrays, dim=dim_name)
+    # object dtype, not numpy's auto-inferred fixed-width "<U*", when any
+    # dimension_value is a string (e.g. named statistics like "average"/
+    # "maximum" rather than a numeric height/channel): opendap-protocol's
+    # generic array encoder writes a fixed-width numpy string array's raw
+    # bytes straight onto the wire with no per-element DAP2 length prefix,
+    # producing a DATADDS response DAP clients reject as malformed ("NetCDF:
+    # Malformed or inaccessible DAP2 DATADDS or DAP4 DAP response"). Values
+    # kept as genuine Python str objects (object dtype) go through a
+    # different, correct encoding path — the same one already used for
+    # plain string data variables like MetSENS_Status.
+    if any(isinstance(value, str) for value in dim_values):
+        dim_values = np.array(dim_values, dtype=object)
     stacked = stacked.assign_coords({dim_name: dim_values})
     stacked = stacked.rename(spec.canonical_name)
     stacked.attrs = {}

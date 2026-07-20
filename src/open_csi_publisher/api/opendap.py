@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+import opendap_protocol.protocol as dap_protocol
 import xarray as xr
 import xpublish
 from cachetools import TTLCache
@@ -13,6 +15,52 @@ from xpublish.plugins.manage import load_default_plugins
 from open_csi_publisher.core import builder as builder_module
 from open_csi_publisher.core.config_versioning import get_versioned_config
 from open_csi_publisher.sources import DatasetLocation
+
+_original_dods_encode = dap_protocol.dods_encode
+
+
+def _patched_dods_encode(data, dtype):
+    """opendap_protocol (as installed) mis-encodes DAP2 String arrays: its
+    generic encoder doubles the array-length header (correct only for
+    fixed-size numeric types) and then dumps a numpy fixed-width byte
+    buffer's raw bytes with no per-element length prefix, instead of DAP2's
+    required per-element [length][bytes][zero-pad to 4 bytes] string
+    encoding. Any dataset with a string-valued coordinate — e.g. an
+    extra_dimension using named statistics like "average"/"maximum" rather
+    than a numeric height/channel — hits this: real DAP clients (confirmed
+    against netCDF4's own OPeNDAP support) reject the resulting response as
+    a malformed DATADDS ("NetCDF: Malformed or inaccessible DAP2 DATADDS or
+    DAP4 DAP response").
+
+    Verified against pydap's own DAP2 response encoder
+    (pydap/responses/dods.py) — a mature, independent implementation of the
+    same protocol — as the reference for the correct byte layout. Every
+    other dtype is delegated to the original, unmodified implementation.
+    """
+    if getattr(dtype, "str", None) != "S":
+        yield from _original_dods_encode(data, dtype)
+        return
+
+    array = np.asarray(data)
+    is_scalar = not hasattr(data, "shape")
+    if not is_scalar:
+        # DAP2 sends the element count once for strings, not doubled like
+        # the fixed-size numeric convention.
+        yield int(np.prod(array.shape)).to_bytes(4, "big")
+    if array.shape == ():
+        array = array.reshape(1)
+
+    for word in array.flat:
+        raw = word.encode("ascii") if isinstance(word, str) else bytes(word)
+        length = len(raw)
+        yield length.to_bytes(4, "big")
+        yield raw
+        pad = (-length) % 4
+        if pad:
+            yield b"\x00" * pad
+
+
+dap_protocol.dods_encode = _patched_dods_encode
 
 
 class PortalDatasetProvider(xpublish.Plugin):
