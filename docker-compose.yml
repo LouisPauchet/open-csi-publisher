@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    image: open-csi-publisher:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # --- state store (core/config_versioning, index/service, publish_log) ---
+      # Default: SQLite under the `local` volume below. For Postgres instead:
+      #   DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/open_csi_publisher
+      # (needs the `postgres` extra baked into the image — see Dockerfile/docs/docker.md)
+      DATABASE_URL: sqlite:///./local/state.db
+
+      # --- sources / branding (relative to BASE_DIR) ---
+      BASE_DIR: /app
+      SOURCES_FILE: sample_configs/sources.yaml
+      BRANDING_FILE: sample_configs/branding.yaml
+
+      # --- OIDC / Entra ID login (unset = every caller anonymous, restricted
+      # datasets stay hidden; the login flow itself isn't built yet) ---
+      OIDC_ISSUER: ""
+      OIDC_CLIENT_ID: ""
+      OIDC_CLIENT_SECRET: ""
+      SESSION_SECRET_KEY: ""
+
+      # --- publish endpoint (static API-key auth, separate from OIDC) ---
+      PUBLISH_API_KEYS_RAW: ""
+      PUBLISH_CACHE_DIR: local/publish_cache
+    volumes:
+      # Real source-station data (LoggerNet .dat/.dat.backup files) — never
+      # baked into the image; read-only, the app only ever reads it.
+      - ./mount:/app/mount:ro
+      # sample_configs/ is baked into the image as a default (see Dockerfile)
+      # but bind-mounted here too so config edits on the host take effect
+      # immediately, without an image rebuild — read-only for the same
+      # reason the app server is documented as read-only in docs/cli.md
+      # (open-csi-config, which writes configs, runs on the data-collection
+      # server, not here).
+      - ./sample_configs:/app/sample_configs:ro
+      # SQLite state db + generated publish-endpoint NetCDF cache — the
+      # app's only writable, persisted state.
+      - ./local:/app/local
+    restart: unless-stopped
