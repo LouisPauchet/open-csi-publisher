@@ -33,15 +33,13 @@ class Settings(BaseSettings):
     def publish_api_keys(self) -> list[str]:
         return [key.strip() for key in self.publish_api_keys_raw.split(",") if key.strip()]
 
-    # ThingsBoard connection: a single tenant-wide credential (there is only one
-    # ThingsBoard deployment, unlike sources.yaml's support for multiple LoggerNet
-    # mounts). Unset by default, meaning no "thingsboard" source can be constructed
-    # until an operator supplies these — enforced lazily by
-    # sources.py::_get_thingsboard_client(), not at import time, so a deployment
-    # with no thingsboard entry in sources.yaml is entirely unaffected.
-    thingsboard_base_url: str | None = None
-    thingsboard_username: str | None = None
-    thingsboard_password: str | None = None
+    # ThingsBoard: a tenant's own base_url/username/password are NOT settings
+    # fields — sources.py::_get_thingsboard_client() reads them straight from
+    # the environment, keyed by each SourceEntry's own credentials_env_prefix,
+    # since the set of valid prefixes is open-ended (one per configured
+    # thingsboard source, potentially many). This interval is the one
+    # ThingsBoard-related value that IS shared/global across every instance —
+    # an operational tuning knob, not a secret.
     thingsboard_discovery_interval_seconds: int = 3600
 
 

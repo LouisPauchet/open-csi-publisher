@@ -7,7 +7,6 @@ from open_csi_publisher.providers.config.folder import FolderConfigProvider
 from open_csi_publisher.providers.config.thingsboard import ThingsBoardConfigProvider
 from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
 from open_csi_publisher.providers.data.thingsboard.provider import ThingsBoardDataProvider
-from open_csi_publisher.settings import settings
 from open_csi_publisher.sources import (
     SourceEntry,
     get_config_provider,
@@ -21,9 +20,10 @@ from ..conftest import REPO_ROOT, requires_mount
 
 @pytest.fixture(autouse=True)
 def _clear_thingsboard_client_cache():
-    # _get_thingsboard_client is process-lifetime lru_cache'd (sources.py) —
-    # any test that touches settings.thingsboard_* must clear it before and
-    # after, or a stale cached client from one test leaks into the next.
+    # _get_thingsboard_client is process-lifetime lru_cache'd (sources.py),
+    # keyed by credentials_env_prefix — any test that touches THINGSBOARD*
+    # env vars must clear it before and after, or a stale cached client for
+    # that prefix leaks into a later test.
     sources_module._get_thingsboard_client.cache_clear()
     yield
     sources_module._get_thingsboard_client.cache_clear()
@@ -94,20 +94,23 @@ def test_get_data_provider_generic_csv_returns_provider():
     assert isinstance(provider, GenericCsvDataProvider)
 
 
-def test_get_thingsboard_client_raises_when_settings_unset(monkeypatch):
-    monkeypatch.setattr(settings, "thingsboard_base_url", None)
-    monkeypatch.setattr(settings, "thingsboard_username", None)
-    monkeypatch.setattr(settings, "thingsboard_password", None)
+def test_get_thingsboard_client_raises_when_env_vars_unset(monkeypatch):
+    monkeypatch.delenv("THINGSBOARD_BASE_URL", raising=False)
+    monkeypatch.delenv("THINGSBOARD_USERNAME", raising=False)
+    monkeypatch.delenv("THINGSBOARD_PASSWORD", raising=False)
 
     with pytest.raises(RuntimeError):
-        sources_module._get_thingsboard_client()
+        sources_module._get_thingsboard_client("THINGSBOARD")
 
 
 def test_get_config_provider_and_get_data_provider_thingsboard_share_one_client(monkeypatch):
-    monkeypatch.setattr(settings, "thingsboard_base_url", "http://tb.example.test")
-    monkeypatch.setattr(settings, "thingsboard_username", "admin")
-    monkeypatch.setattr(settings, "thingsboard_password", "secret")
+    monkeypatch.setenv("THINGSBOARD_BASE_URL", "http://tb.example.test")
+    monkeypatch.setenv("THINGSBOARD_USERNAME", "admin")
+    monkeypatch.setenv("THINGSBOARD_PASSWORD", "secret")
 
+    # credentials_env_prefix omitted -> defaults to "THINGSBOARD", so a
+    # sources.yaml written before multi-instance support keeps working
+    # unchanged.
     source = SourceEntry(
         id="s", type="thingsboard", config_provider="thingsboard",
         config_location="", data_location="",
@@ -118,6 +121,51 @@ def test_get_config_provider_and_get_data_provider_thingsboard_share_one_client(
     assert isinstance(config_provider, ThingsBoardConfigProvider)
     assert isinstance(data_provider, ThingsBoardDataProvider)
     assert config_provider._client is data_provider._client
+
+
+def test_get_thingsboard_client_uses_custom_credentials_env_prefix(monkeypatch):
+    monkeypatch.setenv("THINGSBOARD_SVALBARD_BASE_URL", "http://svalbard.example.test")
+    monkeypatch.setenv("THINGSBOARD_SVALBARD_USERNAME", "svalbard-admin")
+    monkeypatch.setenv("THINGSBOARD_SVALBARD_PASSWORD", "svalbard-secret")
+
+    captured = {}
+
+    class RecordingClient:
+        def __init__(self, base_url, username, password, *, discovery_ttl_seconds=3600):
+            captured["base_url"] = base_url
+            captured["username"] = username
+            captured["password"] = password
+
+    monkeypatch.setattr(sources_module, "ThingsBoardClient", RecordingClient)
+
+    source = SourceEntry(
+        id="s", type="thingsboard", config_provider="thingsboard",
+        config_location="", data_location="", credentials_env_prefix="THINGSBOARD_SVALBARD",
+    )
+    provider = get_data_provider(source, base_dir=REPO_ROOT)
+
+    assert captured == {
+        "base_url": "http://svalbard.example.test",
+        "username": "svalbard-admin",
+        "password": "svalbard-secret",
+    }
+    assert isinstance(provider._client, RecordingClient)
+
+
+def test_thingsboard_clients_are_cached_per_credentials_env_prefix(monkeypatch):
+    monkeypatch.setenv("THINGSBOARD_A_BASE_URL", "http://a.example.test")
+    monkeypatch.setenv("THINGSBOARD_A_USERNAME", "a")
+    monkeypatch.setenv("THINGSBOARD_A_PASSWORD", "a-secret")
+    monkeypatch.setenv("THINGSBOARD_B_BASE_URL", "http://b.example.test")
+    monkeypatch.setenv("THINGSBOARD_B_USERNAME", "b")
+    monkeypatch.setenv("THINGSBOARD_B_PASSWORD", "b-secret")
+
+    client_a1 = sources_module._get_thingsboard_client("THINGSBOARD_A")
+    client_a2 = sources_module._get_thingsboard_client("THINGSBOARD_A")
+    client_b = sources_module._get_thingsboard_client("THINGSBOARD_B")
+
+    assert client_a1 is client_a2
+    assert client_a1 is not client_b
 
 
 @requires_mount
