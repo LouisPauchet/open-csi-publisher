@@ -50,6 +50,13 @@ def test_build_dataset_uses_unis_id_not_id_for_the_internal_slug(
     assert "id" not in ds.attrs
 
 
+def test_build_dataset_includes_source_type_attr(db_session, config_provider, data_provider):
+    ds = build_dataset(
+        "generic_csv_demo", session=db_session, config_provider=config_provider, data_provider=data_provider
+    )
+    assert ds.attrs["source_type"] == "generic_csv"
+
+
 def test_provenance_config_hash_matches_the_recorded_config_version(
     db_session, config_provider, data_provider
 ):

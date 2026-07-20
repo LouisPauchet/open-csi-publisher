@@ -127,6 +127,7 @@ def _build_global_attrs(config: DatasetConfig) -> dict[str, Any]:
     # itself.
     attrs["unis_id"] = config.id
     attrs["platform_type"] = config.platform_type
+    attrs["source_type"] = config.source_type
     return attrs
 
 
