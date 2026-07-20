@@ -13,6 +13,8 @@ from open_csi_publisher.api.auth import User, get_current_user
 from open_csi_publisher.api.deps import get_dataset_locations, get_db_session
 from open_csi_publisher.api.routers.dataset_detail import router as dataset_detail_router
 
+from ..conftest import requires_mount
+
 # Generic data-touching tests deliberately use hanna_resvoll_10min (a single small
 # live file, no archived twin) rather than isfjord_radio_solar_park_measurements3
 # (whose real .dat.backup archive is 188MB): each test gets a fresh in-memory DB
@@ -53,6 +55,7 @@ def client(app):
 # --- GET /datasets/{id} --------------------------------------------------------
 
 
+@requires_mount
 def test_detail_returns_200_and_expected_shape(client):
     response = client.get("/datasets/kapp_thordsen_10minute")
     assert response.status_code == 200
@@ -66,6 +69,7 @@ def test_detail_returns_200_and_expected_shape(client):
     assert "MetSENS_Status" in names
 
 
+@requires_mount
 def test_detail_time_coverage_matches_known_real_bounds(client):
     body = client.get("/datasets/kapp_thordsen_10minute").json()
     assert body["time_coverage"]["start"] is not None
@@ -75,6 +79,7 @@ def test_detail_time_coverage_matches_known_real_bounds(client):
     assert body["time_coverage"]["end"] >= "2026-07-17T11:30:00"
 
 
+@requires_mount
 def test_detail_metadata_includes_computed_provenance_and_coverage_attrs(client):
     # The detail route builds the full dataset (like /data and the downloads
     # do) specifically so `metadata` can carry everything build_dataset()
@@ -103,6 +108,7 @@ def test_detail_restricted_dataset_404_for_anonymous(client):
     assert client.get("/datasets/restricted_station").status_code == 404
 
 
+@requires_mount
 def test_detail_restricted_dataset_200_for_authenticated(app):
     app.dependency_overrides[get_current_user] = lambda: User(subject="u")
     client = TestClient(app)
@@ -144,6 +150,7 @@ def test_deployments_200_for_restricted_authenticated(app):
 # --- GET /datasets/{id}/data -----------------------------------------------------
 
 
+@requires_mount
 def test_data_json_default_format(client):
     response = client.get("/datasets/hanna_resvoll_10min/data")
     assert response.status_code == 200
@@ -153,6 +160,7 @@ def test_data_json_default_format(client):
     assert len(body["time"]) == len(body["air_temperature"])
 
 
+@requires_mount
 def test_data_variables_param_restricts_output(client):
     body = client.get(
         "/datasets/hanna_resvoll_10min/data",
@@ -162,6 +170,7 @@ def test_data_variables_param_restricts_output(client):
     assert "relative_humidity" not in body
 
 
+@requires_mount
 def test_data_csv_format_is_parseable(client):
     response = client.get(
         "/datasets/hanna_resvoll_10min/data", params={"format": "csv"}
@@ -172,6 +181,7 @@ def test_data_csv_format_is_parseable(client):
     assert "air_temperature" in df.columns
 
 
+@requires_mount
 def test_data_csv_format_includes_metadata_header(client):
     response = client.get(
         "/datasets/hanna_resvoll_10min/data", params={"format": "csv"}
@@ -183,6 +193,7 @@ def test_data_csv_format_includes_metadata_header(client):
     assert "# history:" in response.text
 
 
+@requires_mount
 def test_data_time_window_narrows_result(client):
     body = client.get(
         "/datasets/kapp_thordsen_10minute/data",
@@ -197,6 +208,7 @@ def test_data_404_for_restricted_anonymous(client):
     assert client.get("/datasets/restricted_station/data").status_code == 404
 
 
+@requires_mount
 def test_data_200_for_restricted_authenticated(app):
     app.dependency_overrides[get_current_user] = lambda: User(subject="u")
     client = TestClient(app)
@@ -208,6 +220,7 @@ def test_data_200_for_restricted_authenticated(app):
 # --- GET /datasets/{id}/download.nc and .csv -------------------------------------
 
 
+@requires_mount
 def test_download_nc_round_trips_via_xarray(client):
     response = client.get("/datasets/hanna_resvoll_10min/download.nc")
     assert response.status_code == 200
@@ -219,6 +232,7 @@ def test_download_nc_round_trips_via_xarray(client):
     assert ds.sizes["time"] > 0
 
 
+@requires_mount
 def test_download_csv_is_parseable(client):
     response = client.get("/datasets/hanna_resvoll_10min/download.csv")
     assert response.status_code == 200
@@ -226,6 +240,7 @@ def test_download_csv_is_parseable(client):
     assert "air_temperature" in df.columns
 
 
+@requires_mount
 def test_download_csv_includes_metadata_header(client):
     response = client.get("/datasets/hanna_resvoll_10min/download.csv")
     assert response.text.startswith("#")
