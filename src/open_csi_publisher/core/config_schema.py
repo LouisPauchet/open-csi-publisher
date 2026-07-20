@@ -132,9 +132,23 @@ class GenericCsvSourceConfig(BaseModel):
     timestamp_column: str = "timestamp"
 
 
+class ThingsBoardSourceConfig(BaseModel):
+    """Identifies which ThingsBoard device this dataset reads telemetry from.
+    No base_url/credentials here — there is exactly one ThingsBoard tenant,
+    configured once via settings.py, not per-dataset. `device_name` must equal
+    this device's name in ThingsBoard, which is also the value
+    ThingsBoardConfigProvider used as this dataset's id (mirrors
+    FolderConfigProvider's filename-stem-as-id convention)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    device_name: str
+
+
 _SOURCE_CONFIG_TYPES: dict[str, type[BaseModel]] = {
     "loggernet": LoggerNetSourceConfig,
     "generic_csv": GenericCsvSourceConfig,
+    "thingsboard": ThingsBoardSourceConfig,
 }
 
 
@@ -162,9 +176,9 @@ class DatasetConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    source_type: Literal["loggernet", "generic_csv"]
+    source_type: Literal["loggernet", "generic_csv", "thingsboard"]
     access: Literal["public", "restricted"]
-    source_config: LoggerNetSourceConfig | GenericCsvSourceConfig
+    source_config: LoggerNetSourceConfig | GenericCsvSourceConfig | ThingsBoardSourceConfig
     variables: list[VariableSpec]
     platform_type: Literal["fixed", "mobile"]
     deployments: list[Deployment]

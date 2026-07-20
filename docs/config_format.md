@@ -13,13 +13,15 @@ explains the shape; read those files alongside it for concrete values.
 
 ## Top-level fields
 
-- `id` — must match the filename (`<id>.json`); this is how `FolderConfigProvider`
-  resolves a dataset id to a file, without needing to parse every file's contents just
-  to list what's available.
-- `source_type` — `"loggernet"` or `"generic_csv"` (the latter is a minimal second
-  source type that exists to prove the plugin boundary works, not a real deployed UNIS
-  source — see `tests/fixtures/generic_csv/` for its shape; every real config in
-  `sample_configs/` is `"loggernet"`).
+- `id` — must match the filename (`<id>.json`) for a `FolderConfigProvider`-backed
+  dataset (LoggerNet, `generic_csv`); this is how it resolves a dataset id to a file
+  without needing to parse every file's contents just to list what's available. For a
+  `thingsboard` dataset there is no file — `id` must instead match the ThingsBoard
+  **device name** `ThingsBoardConfigProvider` discovered it under (see below).
+- `source_type` — `"loggernet"`, `"generic_csv"`, or `"thingsboard"` (`generic_csv` is a
+  minimal second source type that exists to prove the plugin boundary works, not a real
+  deployed UNIS source — see `tests/fixtures/generic_csv/` for its shape; every real
+  config in `sample_configs/` is `"loggernet"`).
 - `access` — `"public"` or `"restricted"`. Restricted datasets are invisible in listings
   and unreachable through every other endpoint (detail, data, downloads, OPeNDAP) for
   anonymous callers (see `api/access.py`).
@@ -60,6 +62,39 @@ archived-file patterns (`_Historical.dat` and `.dat.backup*`) from `file_pattern
 itself. This matters because LoggerNet table names can be prefixes of each other (e.g.
 `Min`, `Min10`, `Min60`); a pattern like `*_Min*` would incorrectly also match `Min10`'s
 files.
+
+## `source_config` (ThingsBoard)
+
+```json
+{
+  "device_name": "station_c"
+}
+```
+
+Unlike LoggerNet/`generic_csv`, a `thingsboard` dataset's config JSON doesn't live in a
+file at all — it's the JSON value of a **SERVER_SCOPE** device attribute named
+`open-csi-publisher-config` on the ThingsBoard device itself (set by an operator, e.g.
+via the ThingsBoard UI's Device → Attributes → Server attributes tab, not by the device).
+`ThingsBoardConfigProvider` discovers datasets by scanning every device on the tenant and
+probing each for that attribute — any device that has it becomes one dataset, using the
+device's **name** as the dataset id (so `id` in the config must match the device's exact
+name, mirroring the "`id` must match the filename" convention above).
+
+A ThingsBoard tenant's connection details (base URL + credentials) live at the
+**`sources.yaml` source-entry level**, not in `source_config` — see
+[adding_a_dataset.md](adding_a_dataset.md#adding-a-thingsboard-backed-dataset) and
+[running_locally.md](running_locally.md). `source_config` itself carries no
+base_url/credentials, just `device_name`, so it stays identical regardless of which
+tenant the device actually lives on — multiple `thingsboard` source entries (each its own
+tenant) are supported, distinguished by `sources.yaml`'s `credentials_env_prefix`.
+
+`variables[].raw_name` refers to ThingsBoard **telemetry key names** on that device (the
+same role `raw_name` plays for LoggerNet CSV column names) — there's no separate list of
+keys in `source_config`.
+
+Because there's no local ThingsBoard mount to point at, there's no runnable
+`sample_configs/*.json` example for this source type (unlike LoggerNet/`generic_csv`) —
+just the documented shape above.
 
 ## `variables`
 

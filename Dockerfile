@@ -19,12 +19,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Now the project itself. README.md is only needed because pyproject.toml
-# declares it as the package's `readme`; sample_configs/ is baked in as a
-# default so the image is runnable standalone (docker-compose.yml also
-# bind-mounts it for live editing without a rebuild).
+# declares it as the package's `readme`. No config (sample_configs/, .env,
+# etc.) is ever baked into the image — it's runtime state, supplied entirely
+# via volumes/env vars (see docker-compose.yml), same as mount/ and local/.
 COPY src/ src/
 COPY README.md ./
-COPY sample_configs/ sample_configs/
 # --no-editable: uv sync's default editable install of the project itself
 # leaves site-packages pointing back at /app/src rather than containing a
 # real copy — fine for local dev, broken once only .venv/ (not src/) is
@@ -46,18 +45,20 @@ RUN groupadd --system app && useradd --system --gid app --home-dir /app --create
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
-COPY --from=builder --chown=app:app /app/sample_configs /app/sample_configs
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     BASE_DIR=/app
 
-# mount/ (real source-station data) and local/ (sqlite state + publish
-# cache) are runtime state, not image contents — see docker-compose.yml's
-# volumes. Created here (and owned by the app user) so the container still
-# starts cleanly even if nothing is mounted over them.
-RUN mkdir -p /app/mount /app/local && chown app:app /app/mount /app/local
+# mount/ (real source-station data), sample_configs/ (dataset configs,
+# sources.yaml, branding.yaml), and local/ (sqlite state + publish cache) are
+# all runtime state, not image contents — see docker-compose.yml's volumes.
+# Created here (and owned by the app user) so the container still starts
+# cleanly even if nothing is mounted over them, but there's nothing usable to
+# serve until sample_configs/ (or your own config dir) is actually mounted.
+RUN mkdir -p /app/mount /app/sample_configs /app/local && \
+    chown app:app /app/mount /app/sample_configs /app/local
 
 USER app
 EXPOSE 8000

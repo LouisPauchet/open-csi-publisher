@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - run: uv sync --frozen
+      # No real station data (mount/) or sample_configs/-dependent .env exists
+      # in CI — tests that need either are self-skipping (requires_mount) or
+      # use tmp_path/in-memory fixtures, same as any contributor's machine
+      # without the real mount present.
+      - run: uv run pytest -q
+
+  docker:
+    name: Build image (validate only — release-please.yml does the actual push)
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Build-only: catches a broken Dockerfile on every push/PR without
+      # publishing anything. The only place that ever pushes to GHCR is
+      # release-please.yml's docker-publish job, gated on an actual release —
+      # see docs/ci_cd.md.
+      #
+      # No configuration (sample_configs/, .env, credentials, ...) is ever
+      # part of the build context that ends up in the image — see
+      # .dockerignore and docs/docker.md. The image is safe to build once and
+      # run against any deployment's own config, supplied entirely via
+      # volumes/env vars at container-run time.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from open_csi_publisher.api.opendap import PortalDatasetProvider, build_opendap_app
 from open_csi_publisher.core import builder as builder_module
 
+from ..conftest import requires_mount
+
 # --- unit-level: PortalDatasetProvider hooks, no HTTP -------------------------
 
 
@@ -25,6 +27,7 @@ def test_get_datasets_lists_only_public_datasets(provider):
     assert "kapp_thordsen_10minute" in ids
 
 
+@requires_mount
 def test_get_dataset_returns_real_xarray_dataset_for_public_id(provider):
     ds = provider.get_dataset("hanna_resvoll_10min")
     assert isinstance(ds, xr.Dataset)
@@ -39,6 +42,7 @@ def test_get_dataset_returns_none_for_unknown_id(provider):
     assert provider.get_dataset("does_not_exist") is None
 
 
+@requires_mount
 def test_get_dataset_is_cached_within_ttl(provider):
     with patch.object(builder_module, "build_dataset", wraps=builder_module.build_dataset) as spy:
         first = provider.get_dataset("hanna_resvoll_10min")
@@ -62,12 +66,14 @@ def test_datasets_listing_excludes_restricted(opendap_client):
     assert "restricted_station" not in response.json()
 
 
+@requires_mount
 def test_dds_response_contains_known_variable(opendap_client):
     response = opendap_client.get("/datasets/hanna_resvoll_10min/opendap.dds")
     assert response.status_code == 200
     assert "air_temperature" in response.text
 
 
+@requires_mount
 def test_das_response_200(opendap_client):
     response = opendap_client.get("/datasets/hanna_resvoll_10min/opendap.das")
     assert response.status_code == 200
@@ -98,6 +104,7 @@ def _parse_dap2_string_array(dods_bytes: bytes) -> list[str]:
     return values
 
 
+@requires_mount
 def test_dods_response_correctly_encodes_a_string_valued_dimension(opendap_client):
     # Regression test for the "NetCDF: Malformed or inaccessible DAP2
     # DATADDS or DAP4 DAP response" bug: opendap_protocol's generic array

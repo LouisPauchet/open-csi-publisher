@@ -1,25 +1,40 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
 
 from open_csi_publisher.providers.base import ConfigProvider, DataProvider
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
+from open_csi_publisher.providers.config.thingsboard import ThingsBoardConfigProvider
 from open_csi_publisher.providers.data.generic_csv.provider import GenericCsvDataProvider
 from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
+from open_csi_publisher.providers.data.thingsboard.provider import ThingsBoardDataProvider
+from open_csi_publisher.providers.thingsboard_client import ThingsBoardClient
+from open_csi_publisher.settings import settings
 
 
 @dataclass(frozen=True)
 class SourceEntry:
-    """One entry from the top-level sources.yaml (implementation_plan.md §4.1)."""
+    """One entry from the top-level sources.yaml (implementation_plan.md §4.1).
+
+    `credentials_env_prefix` is only meaningful for `type: thingsboard` (unlike
+    `config_location`/`data_location`, ignored there) — it names which env vars
+    hold that source's ThingsBoard credentials (`{prefix}_BASE_URL`/
+    `{prefix}_USERNAME`/`{prefix}_PASSWORD`), so multiple thingsboard sources
+    can each point at a different tenant. Defaults to "THINGSBOARD" so a
+    single-tenant sources.yaml entry doesn't need to set it at all.
+    """
 
     id: str
     type: str
     config_provider: str
     config_location: str
     data_location: str
+    credentials_env_prefix: str = "THINGSBOARD"
 
 
 @dataclass(frozen=True)
@@ -37,9 +52,44 @@ def load_sources(path: Path) -> list[SourceEntry]:
     return [SourceEntry(**entry) for entry in doc["sources"]]
 
 
+@lru_cache(maxsize=None)
+def _get_thingsboard_client(credentials_env_prefix: str) -> ThingsBoardClient:
+    """One client per credentials_env_prefix for the process lifetime, not one
+    per request (unlike the other providers below, which are cheap Path
+    wrappers reconstructed on every call) — so login happens once per
+    ThingsBoard tenant, shared by both the config and data provider instances
+    for every source entry that names the same prefix. Cached separately per
+    prefix (rather than a single `maxsize=1` singleton) so multiple
+    `thingsboard` sources, each pointing at a different tenant, each get their
+    own client/session.
+
+    Credentials are read directly from the environment (not through
+    `Settings`) because the set of valid prefixes is open-ended — defined by
+    whatever `sources.yaml` entries exist, not a fixed set of settings fields.
+    """
+    base_url = os.environ.get(f"{credentials_env_prefix}_BASE_URL")
+    username = os.environ.get(f"{credentials_env_prefix}_USERNAME")
+    password = os.environ.get(f"{credentials_env_prefix}_PASSWORD")
+    if not (base_url and username and password):
+        raise RuntimeError(
+            f"a 'thingsboard' source is configured with credentials_env_prefix="
+            f"{credentials_env_prefix!r} but {credentials_env_prefix}_BASE_URL/"
+            f"{credentials_env_prefix}_USERNAME/{credentials_env_prefix}_PASSWORD "
+            "are not all set"
+        )
+    return ThingsBoardClient(
+        base_url,
+        username,
+        password,
+        discovery_ttl_seconds=settings.thingsboard_discovery_interval_seconds,
+    )
+
+
 def get_config_provider(source: SourceEntry, *, base_dir: Path) -> ConfigProvider:
     if source.config_provider == "folder":
         return FolderConfigProvider(base_dir / source.config_location)
+    if source.config_provider == "thingsboard":
+        return ThingsBoardConfigProvider(_get_thingsboard_client(source.credentials_env_prefix))
     raise ValueError(f"unknown config_provider: {source.config_provider!r}")
 
 
@@ -48,6 +98,8 @@ def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
         return LoggerNetDataProvider(base_dir / source.data_location)
     if source.type == "generic_csv":
         return GenericCsvDataProvider(base_dir / source.data_location)
+    if source.type == "thingsboard":
+        return ThingsBoardDataProvider(_get_thingsboard_client(source.credentials_env_prefix))
     raise ValueError(f"unknown source type: {source.type!r}")
 
 

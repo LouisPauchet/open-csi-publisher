@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from open_csi_publisher import settings as settings_module
 from open_csi_publisher.api.app import create_app
 
-from ..conftest import REPO_ROOT
+from ..conftest import REPO_ROOT, requires_mount
 
 
 def _use_throwaway_db(monkeypatch, tmp_path) -> None:
@@ -25,6 +25,7 @@ def test_create_app_serves_static_files(tmp_path, monkeypatch):
     assert client.get("/static/vendor/leaflet/leaflet.css").status_code == 200
 
 
+@requires_mount
 def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
     _use_throwaway_db(monkeypatch, tmp_path)
     client = TestClient(create_app())

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from open_csi_publisher.core.config_schema import DatasetConfig
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
