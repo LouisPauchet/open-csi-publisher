@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import pytest
 
+from open_csi_publisher import sources as sources_module
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
+from open_csi_publisher.providers.config.thingsboard import ThingsBoardConfigProvider
 from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
+from open_csi_publisher.providers.data.thingsboard.provider import ThingsBoardDataProvider
+from open_csi_publisher.settings import settings
 from open_csi_publisher.sources import (
     SourceEntry,
     get_config_provider,
@@ -13,6 +17,16 @@ from open_csi_publisher.sources import (
 )
 
 from ..conftest import REPO_ROOT, requires_mount
+
+
+@pytest.fixture(autouse=True)
+def _clear_thingsboard_client_cache():
+    # _get_thingsboard_client is process-lifetime lru_cache'd (sources.py) —
+    # any test that touches settings.thingsboard_* must clear it before and
+    # after, or a stale cached client from one test leaks into the next.
+    sources_module._get_thingsboard_client.cache_clear()
+    yield
+    sources_module._get_thingsboard_client.cache_clear()
 
 
 def test_load_sources_parses_the_real_sources_yaml(sample_config_dir):
@@ -78,6 +92,32 @@ def test_get_data_provider_generic_csv_returns_provider():
     )
     provider = get_data_provider(source, base_dir=REPO_ROOT)
     assert isinstance(provider, GenericCsvDataProvider)
+
+
+def test_get_thingsboard_client_raises_when_settings_unset(monkeypatch):
+    monkeypatch.setattr(settings, "thingsboard_base_url", None)
+    monkeypatch.setattr(settings, "thingsboard_username", None)
+    monkeypatch.setattr(settings, "thingsboard_password", None)
+
+    with pytest.raises(RuntimeError):
+        sources_module._get_thingsboard_client()
+
+
+def test_get_config_provider_and_get_data_provider_thingsboard_share_one_client(monkeypatch):
+    monkeypatch.setattr(settings, "thingsboard_base_url", "http://tb.example.test")
+    monkeypatch.setattr(settings, "thingsboard_username", "admin")
+    monkeypatch.setattr(settings, "thingsboard_password", "secret")
+
+    source = SourceEntry(
+        id="s", type="thingsboard", config_provider="thingsboard",
+        config_location="", data_location="",
+    )
+    config_provider = get_config_provider(source, base_dir=REPO_ROOT)
+    data_provider = get_data_provider(source, base_dir=REPO_ROOT)
+
+    assert isinstance(config_provider, ThingsBoardConfigProvider)
+    assert isinstance(data_provider, ThingsBoardDataProvider)
+    assert config_provider._client is data_provider._client
 
 
 @requires_mount

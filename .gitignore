@@ -1,5 +1,6 @@
 mount
 local
+.env
 
 # Python / uv
 .venv/

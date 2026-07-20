@@ -9,6 +9,7 @@ from open_csi_publisher.core.config_schema import (
     DatasetConfig,
     GenericCsvSourceConfig,
     LoggerNetSourceConfig,
+    ThingsBoardSourceConfig,
 )
 
 LOGGERNET_CONFIG = {
@@ -35,6 +36,18 @@ GENERIC_CSV_CONFIG = {
     "output": {"file_naming": "{station}.nc"},
 }
 
+THINGSBOARD_CONFIG = {
+    "id": "station_c",
+    "source_type": "thingsboard",
+    "access": "public",
+    "source_config": {"device_name": "station_c"},
+    "variables": [{"raw_name": "temp", "standard_name": "air_temperature"}],
+    "platform_type": "fixed",
+    "deployments": [{"start": "2020-01-01T00:00:00Z", "end": None, "lat": 78.0, "lon": 13.6}],
+    "metadata": {"title": "Station C"},
+    "output": {"file_naming": "{station}.nc"},
+}
+
 
 def test_loggernet_config_resolves_to_loggernet_source_config():
     config = DatasetConfig.model_validate(LOGGERNET_CONFIG)
@@ -46,6 +59,26 @@ def test_generic_csv_config_resolves_to_generic_csv_source_config():
     config = DatasetConfig.model_validate(GENERIC_CSV_CONFIG)
     assert isinstance(config.source_config, GenericCsvSourceConfig)
     assert config.source_config.file_path == "station_b/data.csv"
+
+
+def test_thingsboard_config_resolves_to_thingsboard_source_config():
+    config = DatasetConfig.model_validate(THINGSBOARD_CONFIG)
+    assert isinstance(config.source_config, ThingsBoardSourceConfig)
+    assert config.source_config.device_name == "station_c"
+
+
+def test_thingsboard_source_config_shape_rejected_under_generic_csv_type():
+    doc = copy.deepcopy(GENERIC_CSV_CONFIG)
+    doc["source_config"] = {"device_name": "station_c"}  # thingsboard-shaped
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate(doc)
+
+
+def test_generic_csv_source_config_shape_rejected_under_thingsboard_type():
+    doc = copy.deepcopy(THINGSBOARD_CONFIG)
+    doc["source_config"] = {"file_path": "x.csv"}  # generic_csv-shaped
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate(doc)
 
 
 def test_generic_csv_source_config_default_timestamp_column():
