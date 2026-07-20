@@ -15,7 +15,7 @@ def test_metadata_kv_includes_open_ended_extra_keys(sample_config_dir):
     doc = build_search_document(config)
 
     assert doc.metadata_kv["department"] == "Arctic Technology"
-    assert doc.metadata_kv["title"] == "UNIS AT Isfjord Radio Solar Park AWS"
+    assert doc.metadata_kv["title"] == "UNIS AT Example Solar Park AWS"
     # unset optional metadata fields (license, naming_authority) are not present
     assert "license" not in doc.metadata_kv
 

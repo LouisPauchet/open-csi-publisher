@@ -56,10 +56,10 @@ def test_listing_page_includes_map_and_panel_scripts(client):
 
 def test_fixed_dataset_rows_carry_lat_lon_for_the_map(client):
     body = client.get("/").text
-    # Kapp Thordsen's real configured position
+    # the example fixed station's configured position
     assert 'data-id="kapp_thordsen_10minute"' in body
-    assert 'data-lat="78.4567"' in body
-    assert 'data-lon="15.3239"' in body
+    assert 'data-lat="78.5"' in body
+    assert 'data-lon="15.0"' in body
 
 
 def test_mobile_dataset_row_has_no_lat_lon_attributes(client):
@@ -82,7 +82,7 @@ def test_listing_table_shows_description_column_not_full_metadata(client):
     body = client.get("/").text
     assert "<th>Description</th>" in body
     # the real description text (kapp_thordsen_10minute) is shown...
-    assert "Fixed automatic weather station at Kapp Thordsen" in body
+    assert "Fixed automatic weather station recording wind" in body
     # ...but other metadata fields that used to be dumped into the row are
     # no longer rendered there (still present in data-meta for JS/filtering,
     # just not as visible table cells)

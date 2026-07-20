@@ -58,7 +58,7 @@ def test_detail_returns_200_and_expected_shape(client):
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == "kapp_thordsen_10minute"
-    assert body["title"] == "UNIS AGF Kapp Thordsen AWS"
+    assert body["title"] == "UNIS AGF Example Fixed Station AWS"
     assert body["platform_type"] == "fixed"
     assert body["access"] == "public"
     names = {v["name"] for v in body["variables"]}
@@ -69,7 +69,7 @@ def test_detail_returns_200_and_expected_shape(client):
 def test_detail_time_coverage_matches_known_real_bounds(client):
     body = client.get("/datasets/kapp_thordsen_10minute").json()
     assert body["time_coverage"]["start"] is not None
-    # Kapp Thordsen historical file starts well before the live file's known
+    # The example fixed station's historical file starts well before the live file's known
     # end; just assert the range brackets the known live-file end boundary
     # from the fileset reconciliation tests, without over-pinning exact bounds.
     assert body["time_coverage"]["end"] >= "2026-07-17T11:30:00"
@@ -97,15 +97,15 @@ def test_detail_restricted_dataset_200_for_authenticated(app):
 def test_deployments_returns_fixed_station_position_windows(client):
     body = client.get("/datasets/kapp_thordsen_10minute/deployments").json()
     assert len(body) == 1
-    assert body[0]["lat"] == 78.4567
-    assert body[0]["lon"] == 15.3239
+    assert body[0]["lat"] == 78.5
+    assert body[0]["lon"] == 15.0
     assert body[0]["platform_name"] is None
 
 
 def test_deployments_returns_mobile_platform_windows(client):
     body = client.get("/datasets/hanna_resvoll_10min/deployments").json()
     assert len(body) == 1
-    assert body[0]["platform_name"] == "Hanna Resvoll"
+    assert body[0]["platform_name"] == "Example Boat"
     assert body[0]["lat"] is None
 
 
@@ -157,7 +157,7 @@ def test_data_csv_format_includes_metadata_header(client):
         "/datasets/hanna_resvoll_10min/data", params={"format": "csv"}
     )
     assert response.text.startswith("#")
-    assert "# title: UNIS AGF Boat Hanna Resvoll AWS" in response.text
+    assert "# title: UNIS AGF Example Boat AWS" in response.text
     assert "# processing_software_version:" in response.text
     assert "# config_hash:" in response.text
     assert "# history:" in response.text
@@ -209,7 +209,7 @@ def test_download_csv_is_parseable(client):
 def test_download_csv_includes_metadata_header(client):
     response = client.get("/datasets/hanna_resvoll_10min/download.csv")
     assert response.text.startswith("#")
-    assert "# title: UNIS AGF Boat Hanna Resvoll AWS" in response.text
+    assert "# title: UNIS AGF Example Boat AWS" in response.text
     assert "# config_hash:" in response.text
 
 

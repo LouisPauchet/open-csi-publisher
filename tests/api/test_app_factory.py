@@ -64,4 +64,4 @@ def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, mo
     client = TestClient(create_app())
     response = client.get("/")
     assert response.status_code == 200
-    assert "UNIS AT Isfjord Radio Solar Park AWS" in response.text
+    assert "UNIS AT Example Solar Park AWS" in response.text

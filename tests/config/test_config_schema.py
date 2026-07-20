@@ -12,7 +12,7 @@ FIXED_CONFIG = {
     "source_type": "loggernet",
     "access": "public",
     "source_config": {
-        "file_pattern": "UNIS_AT_Isfjord_Radio_Solar_Park_AWS/UNIS_AT_Isfjord_Radio_Solar_Park_AWS_Measurements_3.dat",
+        "file_pattern": "UNIS_AT_Example_Solar_Park_AWS/UNIS_AT_Example_Solar_Park_AWS_Measurements_3.dat",
     },
     "variables": [
         {"raw_name": "AirT_C", "standard_name": "air_temperature", "units": "degC"},
@@ -22,7 +22,7 @@ FIXED_CONFIG = {
     "deployments": [
         {"start": "2020-01-01T00:00:00Z", "end": None, "lat": 78.06, "lon": 13.63, "elevation": 10},
     ],
-    "metadata": {"title": "Isfjord Radio Solar Park AWS", "department": "Arctic Technology"},
+    "metadata": {"title": "Example Solar Park AWS", "department": "Arctic Technology"},
     "output": {"file_naming": "{station}_{table}_{yyyy}-{mm}.nc"},
 }
 
@@ -31,7 +31,7 @@ MOBILE_CONFIG = {
     "source_type": "loggernet",
     "access": "public",
     "source_config": {
-        "file_pattern": "UNIS_AGF_Boat_Hanna_Resvoll/UNIS_AGF_Boat_Hanna_Resvoll_AWS_Table_10min.dat",
+        "file_pattern": "UNIS_AGF_Boat_Example_Boat/UNIS_AGF_Boat_Example_Boat_AWS_Table_10min.dat",
     },
     "variables": [
         {"raw_name": "latitude", "standard_name": "latitude"},
@@ -40,9 +40,9 @@ MOBILE_CONFIG = {
     ],
     "platform_type": "mobile",
     "deployments": [
-        {"start": "2026-05-18T00:00:00Z", "end": None, "platform_name": "R/V Hanna Resvoll"},
+        {"start": "2026-05-18T00:00:00Z", "end": None, "platform_name": "R/V Example Boat"},
     ],
-    "metadata": {"title": "Hanna Resvoll boat AWS"},
+    "metadata": {"title": "Example Boat AWS"},
     "output": {"file_naming": "{station}_{table}_{yyyy}-{mm}.nc"},
 }
 
@@ -63,7 +63,7 @@ def test_valid_fixed_config_loads():
 def test_valid_mobile_config_loads():
     config = DatasetConfig.model_validate(MOBILE_CONFIG)
     assert config.platform_type == "mobile"
-    assert config.deployments[0].platform_name == "R/V Hanna Resvoll"
+    assert config.deployments[0].platform_name == "R/V Example Boat"
 
 
 def test_metadata_preserves_extra_open_ended_keys():
@@ -85,8 +85,8 @@ def test_extra_dimension_variable_requires_standard_name_and_members():
         {
             "extra_dimension": {"name": "pyr_channel", "units": "nm"},
             "members": [
-                {"raw_name": "pyr_3364", "dimension_value": 3364},
-                {"raw_name": "pyr_1550", "dimension_value": 1550},
+                {"raw_name": "pyr_ch1", "dimension_value": 1},
+                {"raw_name": "pyr_ch2", "dimension_value": 2},
             ],
             "standard_name": "surface_downwelling_shortwave_flux_in_air",
         }
@@ -115,7 +115,7 @@ def test_extra_dimension_without_standard_name_rejected():
     doc["variables"].append(
         {
             "extra_dimension": {"name": "pyr_channel", "units": "nm"},
-            "members": [{"raw_name": "pyr_3364", "dimension_value": 3364}],
+            "members": [{"raw_name": "pyr_ch1", "dimension_value": 1}],
         }
     )
     with pytest.raises(ValidationError):

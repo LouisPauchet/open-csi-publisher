@@ -18,11 +18,11 @@
   ],
   "platform_type": "fixed",
   "deployments": [
-    {"start": "2020-01-01T00:00:00Z", "end": null, "lat": 78.4567, "lon": 15.3239, "elevation": 5}
+    {"start": "2020-01-01T00:00:00Z", "end": null, "lat": 78.5, "lon": 15.0, "elevation": 5}
   ],
   "metadata": {
-    "title": "UNIS AGF Kapp Thordsen AWS",
-    "description": "Fixed automatic weather station at Kapp Thordsen recording wind, air pressure, humidity, and temperature every 10 minutes.",
+    "title": "UNIS AGF Example Fixed Station AWS",
+    "description": "Fixed automatic weather station recording wind, air pressure, humidity, and temperature every 10 minutes.",
     "institution": "University Centre in Svalbard (UNIS)",
     "department": "Arctic Geophysics",
     "standard_name_vocabulary": "CF-1.10"

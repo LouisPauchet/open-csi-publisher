@@ -18,7 +18,7 @@ def locations(sample_config_dir, fixture_config_dir, mount_root):
     detail routes, and app-factory tests so restricted-exclusion and the
     arbitrary-metadata filter always have something real to exercise.
 
-    The restricted fixture points at real Isfjord data (see
+    The restricted fixture points at the example boat's real backing data (see
     tests/fixtures/configs/restricted_station.json) specifically so
     data-touching routes (detail's time_coverage, /data, downloads) can be
     tested end-to-end for an authenticated user too, not just gated for an

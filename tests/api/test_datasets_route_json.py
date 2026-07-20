@@ -45,7 +45,8 @@ def test_get_datasets_returns_200_and_validates_against_schema(client):
     response = client.get("/datasets")
     assert response.status_code == 200
     parsed = DatasetListResponse.model_validate(response.json())
-    assert parsed.total == 3
+    # 3 real stations + the public string_extra_dimension_station fixture
+    assert parsed.total == 4
 
 
 def test_restricted_dataset_absent_for_anonymous(client):

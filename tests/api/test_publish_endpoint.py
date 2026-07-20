@@ -16,9 +16,9 @@ from ..conftest import requires_mount
 
 API_KEY = "test-publish-key"
 
-# Real Kapp Thordsen data starts 2023-08-11; September 2023 is fully covered,
-# well before the real historical/live gap, so it's a safe "settled" month
-# with actual data rows to exercise real NetCDF generation.
+# The example fixed station's real data starts 2023-08-11; September 2023 is
+# fully covered, well before the real historical/live gap, so it's a safe
+# "settled" month with actual data rows to exercise real NetCDF generation.
 SETTLED_PERIOD = "2023-09"
 
 
@@ -153,7 +153,9 @@ def test_immutable_after_config_change(client, sample_config_dir):
     config_path = sample_config_dir / "kapp_thordsen_10minute.json"
     original = config_path.read_text(encoding="utf-8")
     try:
-        mutated = original.replace('"title": "UNIS AGF Kapp Thordsen AWS"', '"title": "Renamed Station"')
+        mutated = original.replace(
+            '"title": "UNIS AGF Example Fixed Station AWS"', '"title": "Renamed Station"'
+        )
         assert mutated != original
         config_path.write_text(mutated, encoding="utf-8")
 

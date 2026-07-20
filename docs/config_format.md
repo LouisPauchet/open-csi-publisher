@@ -103,7 +103,7 @@ explicit `end`, and windows must not overlap.
 **`mobile`** — `deployments` describes the *platform*, not a position:
 
 ```json
-{"start": "2026-05-18T00:00:00Z", "end": null, "platform_name": "Hanna Resvoll"}
+{"start": "2026-05-18T00:00:00Z", "end": null, "platform_name": "Example Boat"}
 ```
 
 Position instead comes from the data itself: the config must map raw columns to

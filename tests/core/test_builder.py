@@ -47,13 +47,13 @@ def test_build_isfjord_fixed_dataset_end_to_end(db_session, config_provider, dat
     # extra_dimension pyranometer grouping
     var = ds["surface_downwelling_shortwave_flux_in_air"]
     assert "sensor_channel" in var.dims
-    assert list(ds["sensor_channel"].values) == [3364, 1550, 3405, 1551]
+    assert list(ds["sensor_channel"].values) == [1, 2, 3, 4]
 
     # fixed platform: constant resolved position
-    assert (ds["latitude"].values == 78.0616).all()
-    assert (ds["longitude"].values == 13.6294).all()
+    assert (ds["latitude"].values == 78.0).all()
+    assert (ds["longitude"].values == 15.0).all()
 
-    assert ds.attrs["title"] == "UNIS AT Isfjord Radio Solar Park AWS"
+    assert ds.attrs["title"] == "UNIS AT Example Solar Park AWS"
     assert ds.attrs["department"] == "Arctic Technology"
 
 
@@ -77,7 +77,7 @@ def test_build_kapp_thordsen_gap_and_column_drift_end_to_end(
     assert bool(np.isnan(surface_temp.sel(time=slice(None, last_historical)).values).all())
     assert bool(np.isfinite(surface_temp.sel(time=slice(first_live, None)).values).any())
 
-    assert (ds["latitude"].values == 78.4567).all()
+    assert (ds["latitude"].values == 78.5).all()
 
 
 @requires_mount
@@ -93,7 +93,7 @@ def test_build_hanna_resvoll_mobile_dataset_end_to_end(db_session, config_provid
     assert float(ds["latitude"].isel(time=0).values) == pytest.approx(78.22824)
     assert float(ds["longitude"].isel(time=0).values) == pytest.approx(15.60777)
 
-    assert (ds["platform"].values == "Hanna Resvoll").all()
+    assert (ds["platform"].values == "Example Boat").all()
 
     # raw vs. motion-corrected wind both present, distinctly
     assert "wind_speed" in ds.data_vars  # corrected -> canonical

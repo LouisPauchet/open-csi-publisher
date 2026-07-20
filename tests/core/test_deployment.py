@@ -121,7 +121,7 @@ def _mobile_ds() -> xr.Dataset:
 
 def test_mobile_does_not_touch_latitude_longitude_data():
     config = _config(
-        BASE_MOBILE, [{"start": "2020-01-01T00:00:00Z", "end": None, "platform_name": "Hanna Resvoll"}]
+        BASE_MOBILE, [{"start": "2020-01-01T00:00:00Z", "end": None, "platform_name": "Example Boat"}]
     )
     raw = _mobile_ds()
     result = apply_deployment_metadata(raw, config)
@@ -132,10 +132,10 @@ def test_mobile_does_not_touch_latitude_longitude_data():
 
 def test_mobile_attaches_platform_coordinate():
     config = _config(
-        BASE_MOBILE, [{"start": "2020-01-01T00:00:00Z", "end": None, "platform_name": "Hanna Resvoll"}]
+        BASE_MOBILE, [{"start": "2020-01-01T00:00:00Z", "end": None, "platform_name": "Example Boat"}]
     )
     result = apply_deployment_metadata(_mobile_ds(), config)
-    assert (result["platform"].values == "Hanna Resvoll").all()
+    assert (result["platform"].values == "Example Boat").all()
 
 
 def test_mobile_platform_switches_at_deployment_boundary():
@@ -144,20 +144,20 @@ def test_mobile_platform_switches_at_deployment_boundary():
         BASE_MOBILE,
         [
             {"start": "2020-01-01T00:00:00Z", "end": boundary.isoformat(), "platform_name": "Old Boat"},
-            {"start": boundary.isoformat(), "end": None, "platform_name": "Hanna Resvoll"},
+            {"start": boundary.isoformat(), "end": None, "platform_name": "Example Boat"},
         ],
     )
     result = apply_deployment_metadata(_mobile_ds(), config)
     platform = result["platform"].values
     assert list(platform[:3]) == ["Old Boat"] * 3
-    assert list(platform[3:]) == ["Hanna Resvoll"] * 3
+    assert list(platform[3:]) == ["Example Boat"] * 3
 
 
 def test_mobile_timestamps_before_first_deployment_platform_is_missing():
     config = _config(
-        BASE_MOBILE, [{"start": TIME[2].isoformat(), "end": None, "platform_name": "Hanna Resvoll"}]
+        BASE_MOBILE, [{"start": TIME[2].isoformat(), "end": None, "platform_name": "Example Boat"}]
     )
     result = apply_deployment_metadata(_mobile_ds(), config)
     platform = result["platform"].values
     assert platform[0] is None or (isinstance(platform[0], float) and np.isnan(platform[0]))
-    assert platform[2] == "Hanna Resvoll"
+    assert platform[2] == "Example Boat"

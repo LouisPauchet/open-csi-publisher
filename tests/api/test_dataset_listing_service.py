@@ -14,13 +14,14 @@ def _ids(result) -> set[str]:
 def test_anonymous_never_sees_restricted_dataset(db_session, locations):
     result = list_visible_datasets(db_session, ANONYMOUS, locations=locations)
     assert "restricted_station" not in _ids(result)
-    assert result.total == 3
+    # 3 real stations + the public string_extra_dimension_station fixture
+    assert result.total == 4
 
 
 def test_authenticated_user_sees_restricted_dataset(db_session, locations):
     result = list_visible_datasets(db_session, LOGGED_IN, locations=locations)
     assert "restricted_station" in _ids(result)
-    assert result.total == 4
+    assert result.total == 5
 
 
 def test_q_filters_by_title_substring_case_insensitive(db_session, locations):
@@ -67,8 +68,9 @@ def test_meta_filter_exact_department_narrows_to_one(db_session, locations):
 
 
 def test_meta_filter_substring_matches_multiple(db_session, locations):
-    # Kapp Thordsen and Hanna Resvoll are both "Arctic Geophysics"; Isfjord is
-    # "Arctic Technology" and must not match this narrower substring
+    # The example fixed station and example boat are both "Arctic Geophysics";
+    # the example multichannel station is "Arctic Technology" and must not
+    # match this narrower substring
     result = list_visible_datasets(
         db_session, ANONYMOUS, locations=locations, meta_filters=[("department", "Geophysics")]
     )
@@ -84,11 +86,11 @@ def test_results_sorted_by_id(db_session, locations):
 def test_dataset_summary_shape_for_fixed_dataset(db_session, locations):
     result = list_visible_datasets(db_session, ANONYMOUS, locations=locations, q="kapp")
     summary = result.datasets[0]
-    assert summary.title == "UNIS AGF Kapp Thordsen AWS"
+    assert summary.title == "UNIS AGF Example Fixed Station AWS"
     assert summary.platform_type == "fixed"
     assert "air_temperature" in summary.standard_names
     assert summary.metadata["department"] == "Arctic Geophysics"
-    assert summary.position == {"lat": 78.4567, "lon": 15.3239, "elevation": 5}
+    assert summary.position == {"lat": 78.5, "lon": 15.0, "elevation": 5}
 
 
 def test_position_is_none_for_mobile_dataset(db_session, locations):

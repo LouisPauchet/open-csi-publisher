@@ -44,9 +44,9 @@ def test_get_page_returns_200_html(client):
 
 def test_visible_dataset_titles_appear_in_body(client):
     body = client.get("/").text
-    assert "UNIS AT Isfjord Radio Solar Park AWS" in body
-    assert "UNIS AGF Kapp Thordsen AWS" in body
-    assert "UNIS AGF Boat Hanna Resvoll AWS" in body
+    assert "UNIS AT Example Solar Park AWS" in body
+    assert "UNIS AGF Example Fixed Station AWS" in body
+    assert "UNIS AGF Example Boat AWS" in body
 
 
 def test_restricted_dataset_absent_from_body_for_anonymous(client):
@@ -72,7 +72,7 @@ def test_filter_form_fields_present(client):
 def test_platform_type_filter_narrows_rendered_rows(client):
     body = client.get("/", params={"platform_type": "mobile"}).text
     assert 'data-platform-type="mobile"' in body
-    assert "UNIS AT Isfjord Radio Solar Park AWS" not in body
+    assert "UNIS AT Example Solar Park AWS" not in body
 
 
 def test_dataset_rows_carry_data_attributes_for_js_filtering(client):
@@ -86,8 +86,8 @@ def test_meta_filter_narrows_rendered_rows(client):
     body = client.get(
         "/", params={"meta_key": "department", "meta_value": "Arctic Technology"}
     ).text
-    assert "UNIS AT Isfjord Radio Solar Park AWS" in body
-    assert "UNIS AGF Kapp Thordsen AWS" not in body
+    assert "UNIS AT Example Solar Park AWS" in body
+    assert "UNIS AGF Example Fixed Station AWS" not in body
 
 
 def test_standard_name_facet_options_reflect_visible_datasets_only(client):

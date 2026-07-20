@@ -3,7 +3,7 @@
   "source_type": "loggernet",
   "access": "public",
   "source_config": {
-    "file_pattern": "UNIS_AT_Example_Solar_Park_AWS/UNIS_AT_Example_Solar_Park_AWS_Measurements_3.dat",
+    "file_pattern": "UNIS_AT_Isfjord_Radio_Solar_Park_AWS/UNIS_AT_Isfjord_Radio_Solar_Park_AWS_Measurements_3.dat",
     "table_name": "Measurements_3"
   },
   "variables": [
@@ -17,10 +17,10 @@
     {
       "extra_dimension": {"name": "sensor_channel", "units": "1"},
       "members": [
-        {"raw_name": "pyr_ch1", "dimension_value": 1},
-        {"raw_name": "pyr_ch2", "dimension_value": 2},
-        {"raw_name": "pyr_ch3", "dimension_value": 3},
-        {"raw_name": "pyr_ch4", "dimension_value": 4}
+        {"raw_name": "pyr_3364", "dimension_value": 1},
+        {"raw_name": "pyr_1550", "dimension_value": 2},
+        {"raw_name": "pyr_3405", "dimension_value": 3},
+        {"raw_name": "pyr_1551", "dimension_value": 4}
       ],
       "standard_name": "surface_downwelling_shortwave_flux_in_air",
       "units": "W m-2"
