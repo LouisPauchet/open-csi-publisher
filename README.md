@@ -70,3 +70,7 @@ uv run pytest
 
 Test-first throughout, grounded in real UNIS station sample data wherever possible
 rather than synthetic fixtures. See [docs/setup.md](docs/setup.md).
+
+## Acknowledgment
+
+This project has been developed with the assistance of [Claude Code](https://claude.com/claude-code).
