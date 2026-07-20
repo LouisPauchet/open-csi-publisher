@@ -5,7 +5,6 @@ from datetime import datetime
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 from open_csi_publisher.core.config_schema import LoggerNetSourceConfig
 from open_csi_publisher.providers.data.loggernet import provider as provider_module

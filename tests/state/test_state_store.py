@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from open_csi_publisher.core.models import FileRecord
 from open_csi_publisher.state import repository
-from open_csi_publisher.state.models import Base, FileIndexEntry
+from open_csi_publisher.state.models import FileIndexEntry
 
 
 def test_create_all_creates_expected_tables(sqlite_engine):

@@ -4,7 +4,6 @@ import copy
 
 import numpy as np
 import pandas as pd
-import pytest
 import xarray as xr
 
 from open_csi_publisher.core.config_schema import DatasetConfig

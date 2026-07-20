@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from click.testing import CliRunner
 
 from open_csi_publisher.cli.create_config import build_config_dict, main
