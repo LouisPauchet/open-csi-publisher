@@ -10,6 +10,7 @@
 - [cli.md](cli.md) — the `open-csi-config` config-creation CLI
 - [branding.md](branding.md) — customizing the logo/color set for a non-UNIS deployment
 - [docker.md](docker.md) — the Docker image and docker-compose setup
+- [ci_cd.md](ci_cd.md) — the GitHub Actions pipeline (test, lint, Docker build/push to GHCR)
 - [architecture.md](architecture.md) — module map and how this code maps onto the system design
 
 The overall system design (config layers, providers, the file index, OPeNDAP/REST/
