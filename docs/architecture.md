@@ -145,13 +145,22 @@ Built and tested end-to-end against real UNIS station data:
   automatically consistent with whatever filters (server- or client-side) are currently
   active, and a restricted dataset that never got rendered as a row can't get a marker
   either. See `static/js/map.js`.
-- **`ThingsBoardClient` is a single process-lifetime singleton** (`sources.py`'s
-  `lru_cache`d `_get_thingsboard_client()`), not reconstructed per request like every
-  other provider — logging in to ThingsBoard's REST API on every single HTTP request
-  would be wasteful and slow. Its device-discovery fan-out (`list_dataset_ids()`, one
-  probe per tenant device) is additionally throttled by an in-process TTL cache
-  (`thingsboard_discovery_interval_seconds`, default 1 hour) — per-dataset config
-  loads/hashes stay O(1) exact-name lookups and are not throttled.
+- **`ThingsBoardClient` is a process-lifetime singleton per tenant, not per request**
+  (`sources.py`'s `lru_cache`d `_get_thingsboard_client(credentials_env_prefix)`) — not
+  reconstructed on every call like every other provider, since logging in to ThingsBoard's
+  REST API on every single HTTP request would be wasteful and slow. Cached by
+  `credentials_env_prefix` rather than as a single `maxsize=1` singleton, so **multiple
+  `thingsboard` source entries, each a different tenant, each get their own
+  client/session** — a `sources.yaml` entry's `credentials_env_prefix` (default
+  `"THINGSBOARD"`) both selects which `{prefix}_BASE_URL`/`{prefix}_USERNAME`/
+  `{prefix}_PASSWORD` env vars supply that tenant's credentials and keys its cached
+  client. Credentials are read straight from `os.environ` (via `python-dotenv`'s
+  `load_dotenv()` in `settings.py`, not through the typed `Settings` model) because the
+  set of valid prefixes is open-ended, defined by whatever `sources.yaml` entries exist.
+  Each tenant's device-discovery fan-out (`list_dataset_ids()`, one probe per tenant
+  device) is throttled by that same client's in-process TTL cache
+  (`thingsboard_discovery_interval_seconds`, one shared global default, default 1 hour) —
+  per-dataset config loads/hashes stay O(1) exact-name lookups and are not throttled.
 - **`sample_configs/sources.yaml` has no `thingsboard` entry** — it's the default
   sources file loaded by the whole test suite and local dev server, and a live entry
   would make every request attempt a real ThingsBoard connection where none exists in

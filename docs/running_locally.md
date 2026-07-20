@@ -21,6 +21,18 @@ state; it will be recreated automatically.
 All optional; sensible defaults assume you're running from the repo root with the real
 sample data present under `mount/`.
 
+**Don't put overrides in a root-level `.env` file** — `Settings`' `env_file=".env"`
+config makes pydantic-settings read that file unconditionally for every `Settings()`
+construction, including the test suite's, so a stray `SOURCES_FILE` override there
+silently breaks tests that expect the default sample dataset set. For local overrides
+(e.g. a `sources.yaml` with a `thingsboard` entry pointed at a real tenant), use a
+gitignored file under `local/` (e.g. `local/.env`) and load it explicitly, scoped to one
+invocation, via uv's own `--env-file` flag:
+
+```sh
+uv run --env-file local/.env uvicorn open_csi_publisher.api.app:create_app --factory --reload
+```
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./local/state.db` | State store connection string. Point this at a PostgreSQL URL for prod-like testing (`postgresql+psycopg://...`) — the same SQLAlchemy models work against both. |
@@ -30,8 +42,8 @@ sample data present under `mount/`.
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET_KEY` | unset | Inert placeholders for the future Entra ID/OIDC integration. While `OIDC_ISSUER` is unset (the default), every caller is anonymous and restricted datasets are always hidden — there is currently no way to log in. |
 | `PUBLISH_API_KEYS_RAW` | `""` (empty — no keys, endpoint always 401s) | Comma-separated static API keys for the publish endpoint. See [publish_endpoint.md](publish_endpoint.md). |
 | `PUBLISH_CACHE_DIR` | `local/publish_cache` | Where generated monthly NetCDF files are cached. |
-| `THINGSBOARD_BASE_URL`, `THINGSBOARD_USERNAME`, `THINGSBOARD_PASSWORD` | unset | The single ThingsBoard tenant a `thingsboard` source entry connects to (there's only one — see [config_format.md](config_format.md)). Until all three are set, no `thingsboard` source can be constructed; a deployment with no `thingsboard` entry in `sources.yaml` is unaffected. |
-| `THINGSBOARD_DISCOVERY_INTERVAL_SECONDS` | `3600` | How often `list_dataset_ids()` re-probes every tenant device for the `open-csi-publisher-config` attribute (an in-process TTL cache) instead of re-scanning on every request. |
+| `{PREFIX}_BASE_URL`, `{PREFIX}_USERNAME`, `{PREFIX}_PASSWORD` | unset | Credentials for one ThingsBoard tenant, where `{PREFIX}` is that `sources.yaml` entry's `credentials_env_prefix` (defaults to `THINGSBOARD` if the entry doesn't set one — so a single-tenant setup just needs `THINGSBOARD_BASE_URL`/`THINGSBOARD_USERNAME`/`THINGSBOARD_PASSWORD`). Multiple `thingsboard` source entries, each with a distinct prefix, connect to multiple independent tenants. Until all three are set for a given prefix, no `thingsboard` source using that prefix can be constructed; a deployment with no `thingsboard` entry in `sources.yaml` is unaffected. See [adding_a_dataset.md](adding_a_dataset.md#adding-a-thingsboard-backed-dataset). |
+| `THINGSBOARD_DISCOVERY_INTERVAL_SECONDS` | `3600` | How often `list_dataset_ids()` re-probes every tenant device for the `open-csi-publisher-config` attribute (an in-process TTL cache) instead of re-scanning on every request. Shared across every ThingsBoard tenant/prefix, not per-instance. |
 
 ## Manual QA checklist
 

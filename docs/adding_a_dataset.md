@@ -97,26 +97,39 @@ There's no CLI support for this source type yet (`open-csi-config` stays LoggerN
 
    ```yaml
    sources:
-     - id: thingsboard
+     - id: thingsboard_svalbard
        type: thingsboard
        config_provider: thingsboard
        config_location: ""
        data_location: ""
+       credentials_env_prefix: THINGSBOARD_SVALBARD
    ```
 
    `config_location`/`data_location` are unused for this source type (the connection
-   comes from settings, not a folder path) — set to empty strings.
-4. **Set the connection env vars**: `THINGSBOARD_BASE_URL`, `THINGSBOARD_USERNAME`,
-   `THINGSBOARD_PASSWORD` (see [running_locally.md](running_locally.md)).
+   comes from environment variables, not a folder path) — set to empty strings.
+   `credentials_env_prefix` names which env vars hold *this* entry's ThingsBoard
+   credentials (step 4) — it defaults to `THINGSBOARD` if omitted, so a single-tenant
+   setup can skip it entirely. **Multiple ThingsBoard tenants are supported**: add one
+   `thingsboard` source entry per tenant, each with its own `id` and a distinct
+   `credentials_env_prefix` (e.g. `THINGSBOARD_SVALBARD`, `THINGSBOARD_NY_ALESUND`).
+4. **Set the connection env vars**, named after the prefix from step 3 — for
+   `credentials_env_prefix: THINGSBOARD_SVALBARD`, that's `THINGSBOARD_SVALBARD_BASE_URL`,
+   `THINGSBOARD_SVALBARD_USERNAME`, `THINGSBOARD_SVALBARD_PASSWORD` (see
+   [running_locally.md](running_locally.md)). A second tenant just needs its own prefix
+   and its own three env vars — nothing else changes. Put these in a gitignored file
+   under `local/` (e.g. `local/.env`), **not** a root-level `.env`, which
+   pydantic-settings loads unconditionally and would leak a customized `SOURCES_FILE`
+   into the test suite — load it explicitly per-invocation instead, via
+   `uv run --env-file local/.env ...` (both commands below).
 5. **Validate it loads:**
 
    ```sh
-   uv run python -c "
+   uv run --env-file local/.env python -c "
    from open_csi_publisher.providers.config.thingsboard import ThingsBoardConfigProvider
    from open_csi_publisher.sources import _get_thingsboard_client
    from open_csi_publisher.core.config_schema import DatasetConfig
 
-   provider = ThingsBoardConfigProvider(_get_thingsboard_client())
+   provider = ThingsBoardConfigProvider(_get_thingsboard_client('THINGSBOARD_SVALBARD'))
    print(provider.list_dataset_ids())
    config = DatasetConfig.model_validate(provider.load_config('<device_name>'))
    print(config.id, config.platform_type, len(config.variables))

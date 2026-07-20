@@ -4,3 +4,24 @@ sources:
     config_provider: folder
     config_location: sample_configs/
     data_location: mount/loggernet-test-server/
+
+# Example: two independent ThingsBoard tenants. Left commented out here since this
+# is the sources.yaml the whole test suite and default dev server load — an active
+# thingsboard entry would make every request that resolves dataset locations try to
+# reach a real ThingsBoard tenant, which doesn't exist in CI/dev (see
+# docs/architecture.md and docs/adding_a_dataset.md#adding-a-thingsboard-backed-dataset).
+# Copy this into your own deployment's sources.yaml to enable it there.
+#
+#  - id: thingsboard_svalbard
+#    type: thingsboard
+#    config_provider: thingsboard
+#    config_location: ""
+#    data_location: ""
+#    credentials_env_prefix: THINGSBOARD_SVALBARD
+#
+#  - id: thingsboard_ny_alesund
+#    type: thingsboard
+#    config_provider: thingsboard
+#    config_location: ""
+#    data_location: ""
+#    credentials_env_prefix: THINGSBOARD_NY_ALESUND

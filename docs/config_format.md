@@ -80,10 +80,13 @@ probing each for that attribute — any device that has it becomes one dataset, 
 device's **name** as the dataset id (so `id` in the config must match the device's exact
 name, mirroring the "`id` must match the filename" convention above).
 
-There is only one ThingsBoard tenant to connect to, configured once for the whole app via
-`THINGSBOARD_BASE_URL`/`THINGSBOARD_USERNAME`/`THINGSBOARD_PASSWORD` (see
-[running_locally.md](running_locally.md)) — `source_config` itself carries no
-base_url/credentials, just `device_name`.
+A ThingsBoard tenant's connection details (base URL + credentials) live at the
+**`sources.yaml` source-entry level**, not in `source_config` — see
+[adding_a_dataset.md](adding_a_dataset.md#adding-a-thingsboard-backed-dataset) and
+[running_locally.md](running_locally.md). `source_config` itself carries no
+base_url/credentials, just `device_name`, so it stays identical regardless of which
+tenant the device actually lives on — multiple `thingsboard` source entries (each its own
+tenant) are supported, distinguished by `sources.yaml`'s `credentials_env_prefix`.
 
 `variables[].raw_name` refers to ThingsBoard **telemetry key names** on that device (the
 same role `raw_name` plays for LoggerNet CSV column names) — there's no separate list of
