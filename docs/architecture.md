@@ -15,7 +15,7 @@ src/open_csi_publisher/
 ├── branding.py                BrandingConfig — logo/color-set, see docs/branding.md
 ├── core/
 │   ├── config_schema.py      The dataset config envelope (Pydantic); discriminated
-│   │                         source_config union (loggernet | generic_csv)
+│   │                         source_config union (loggernet | generic_csv | thingsboard)
 │   ├── config_versioning.py  Lazy hash-check + snapshot (get_versioned_config)
 │   ├── variable_mapping.py   Raw columns -> canonical output variables
 │   ├── deployment.py         Fixed position / mobile platform resolution
@@ -25,14 +25,22 @@ src/open_csi_publisher/
 │   └── builder.py            build_dataset() / resolve_time_coverage() — the shared pipeline
 ├── providers/
 │   ├── base.py                ConfigProvider / DataProvider ABCs
-│   ├── config/folder.py       FolderConfigProvider (scans *.json in a folder; source-type-agnostic)
+│   ├── thingsboard_client.py  ThingsBoardClient — shared low-level REST client (auth,
+│   │                          devices, attributes, telemetry), used by both the
+│   │                          ThingsBoard config and data provider below
+│   ├── config/
+│   │   ├── folder.py           FolderConfigProvider (scans *.json in a folder; source-type-agnostic)
+│   │   └── thingsboard.py      ThingsBoardConfigProvider — reads the open-csi-publisher-config
+│   │                          device attribute instead of a file
 │   └── data/
 │       ├── loggernet/
 │       │   ├── toa5.py         TOA5 .dat header + body parsing
 │       │   ├── fileset.py      Live/archived file classification + reconciliation
 │       │   └── provider.py     LoggerNetDataProvider (get_file_index / read_range)
-│       └── generic_csv/
-│           └── provider.py     GenericCsvDataProvider — second source type, mtime-based
+│       ├── generic_csv/
+│       │   └── provider.py     GenericCsvDataProvider — second source type, mtime-based
+│       └── thingsboard/
+│           └── provider.py     ThingsBoardDataProvider — third source type, telemetry-API-based
 ├── index/service.py          Lazy file-index refresh orchestration
 ├── state/                    SQLAlchemy models + repository (config_versions, file_index, publish_log)
 ├── cli/
@@ -84,6 +92,10 @@ Built and tested end-to-end against real UNIS station data:
 - The full `build_dataset()` pipeline (LoggerNet source type).
 - A **second source type** (`generic_csv`) proving the `ConfigProvider`/`DataProvider`
   plugin boundary is genuinely independent of the core pipeline (§13).
+- A **third source type** (`thingsboard`) reading both the dataset config and the
+  telemetry itself from a remote ThingsBoard tenant over its REST API, rather than a
+  local file — see the `source_config (ThingsBoard)` section of
+  [`config_format.md`](config_format.md).
 - A server-rendered, filterable dataset-listing page that also embeds a **station map**
   and a **dataset detail panel** (metadata + OPeNDAP/NetCDF/CSV access links) — see
   `docs/rest_api.md` for the endpoints it's built on.
@@ -133,3 +145,15 @@ Built and tested end-to-end against real UNIS station data:
   automatically consistent with whatever filters (server- or client-side) are currently
   active, and a restricted dataset that never got rendered as a row can't get a marker
   either. See `static/js/map.js`.
+- **`ThingsBoardClient` is a single process-lifetime singleton** (`sources.py`'s
+  `lru_cache`d `_get_thingsboard_client()`), not reconstructed per request like every
+  other provider — logging in to ThingsBoard's REST API on every single HTTP request
+  would be wasteful and slow. Its device-discovery fan-out (`list_dataset_ids()`, one
+  probe per tenant device) is additionally throttled by an in-process TTL cache
+  (`thingsboard_discovery_interval_seconds`, default 1 hour) — per-dataset config
+  loads/hashes stay O(1) exact-name lookups and are not throttled.
+- **`sample_configs/sources.yaml` has no `thingsboard` entry** — it's the default
+  sources file loaded by the whole test suite and local dev server, and a live entry
+  would make every request attempt a real ThingsBoard connection where none exists in
+  CI/dev. ThingsBoard wiring is documented (`docs/adding_a_dataset.md`) for a real
+  deployment's own `sources.yaml`/`.env` to add, exactly like the OIDC settings block.

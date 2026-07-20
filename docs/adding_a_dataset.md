@@ -76,3 +76,54 @@ If a column's raw name changed (sensor swap, logger reprogram), add the old name
 variable's `old_names` list rather than treating it as unmapped — this coalesces the two
 periods into one continuous output variable (see `variable_mapping.py`). A genuinely new
 column just needs a new `variables[]` entry; nothing else needs to change.
+
+## Adding a ThingsBoard-backed dataset
+
+There's no CLI support for this source type yet (`open-csi-config` stays LoggerNet-only)
+— configs are authored by hand against the shape documented in
+[config_format.md](config_format.md#source_config-thingsboard).
+
+1. **Locate/confirm the device in ThingsBoard.** Note its exact device name — this
+   becomes both `source_config.device_name` and the config's own `id`.
+2. **Set the config attribute.** In the ThingsBoard UI, open the device → Attributes →
+   Server attributes, and add (or edit) an attribute named `open-csi-publisher-config`
+   whose value is the full dataset config JSON (`source_type: "thingsboard"`,
+   `source_config: {"device_name": "<exact device name>"}`, plus `variables`,
+   `platform_type`, `deployments`, `metadata`, `output` — same shape as any other
+   dataset). `variables[].raw_name` should match this device's telemetry key names.
+3. **Add a `thingsboard` entry to your own deployment's `sources.yaml`** (not
+   `sample_configs/sources.yaml` in this repo — that file intentionally has no live
+   ThingsBoard entry, see `docs/architecture.md`):
+
+   ```yaml
+   sources:
+     - id: thingsboard
+       type: thingsboard
+       config_provider: thingsboard
+       config_location: ""
+       data_location: ""
+   ```
+
+   `config_location`/`data_location` are unused for this source type (the connection
+   comes from settings, not a folder path) — set to empty strings.
+4. **Set the connection env vars**: `THINGSBOARD_BASE_URL`, `THINGSBOARD_USERNAME`,
+   `THINGSBOARD_PASSWORD` (see [running_locally.md](running_locally.md)).
+5. **Validate it loads:**
+
+   ```sh
+   uv run python -c "
+   from open_csi_publisher.providers.config.thingsboard import ThingsBoardConfigProvider
+   from open_csi_publisher.sources import _get_thingsboard_client
+   from open_csi_publisher.core.config_schema import DatasetConfig
+
+   provider = ThingsBoardConfigProvider(_get_thingsboard_client())
+   print(provider.list_dataset_ids())
+   config = DatasetConfig.model_validate(provider.load_config('<device_name>'))
+   print(config.id, config.platform_type, len(config.variables))
+   "
+   ```
+6. **Check it shows up on the listing page** — start the server with your `sources.yaml`
+   ([running_locally.md](running_locally.md)) and confirm the dataset appears at `/` with
+   real telemetry once you open its detail panel. Note that newly added/removed devices
+   can take up to `THINGSBOARD_DISCOVERY_INTERVAL_SECONDS` (default 1 hour) to
+   appear/disappear from the listing — discovery is throttled, not re-run per request.

@@ -30,6 +30,8 @@ sample data present under `mount/`.
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET_KEY` | unset | Inert placeholders for the future Entra ID/OIDC integration. While `OIDC_ISSUER` is unset (the default), every caller is anonymous and restricted datasets are always hidden — there is currently no way to log in. |
 | `PUBLISH_API_KEYS_RAW` | `""` (empty — no keys, endpoint always 401s) | Comma-separated static API keys for the publish endpoint. See [publish_endpoint.md](publish_endpoint.md). |
 | `PUBLISH_CACHE_DIR` | `local/publish_cache` | Where generated monthly NetCDF files are cached. |
+| `THINGSBOARD_BASE_URL`, `THINGSBOARD_USERNAME`, `THINGSBOARD_PASSWORD` | unset | The single ThingsBoard tenant a `thingsboard` source entry connects to (there's only one — see [config_format.md](config_format.md)). Until all three are set, no `thingsboard` source can be constructed; a deployment with no `thingsboard` entry in `sources.yaml` is unaffected. |
+| `THINGSBOARD_DISCOVERY_INTERVAL_SECONDS` | `3600` | How often `list_dataset_ids()` re-probes every tenant device for the `open-csi-publisher-config` attribute (an in-process TTL cache) instead of re-scanning on every request. |
 
 ## Manual QA checklist
 
