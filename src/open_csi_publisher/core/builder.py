@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from importlib.metadata import version as _package_version
 from typing import Any
 
+import numpy as np
+import pandas as pd
 import xarray as xr
 from sqlalchemy.orm import Session
 
@@ -53,6 +55,7 @@ def build_dataset(
     result = apply_deployment_metadata(mapped, config)
     result.attrs.update(_build_global_attrs(config))
     result.attrs.update(_build_provenance_attrs(session, dataset_id, config))
+    result.attrs.update(_build_coverage_attrs(result))
     return result
 
 
@@ -117,8 +120,47 @@ def _build_global_attrs(config: DatasetConfig) -> dict[str, Any]:
     attrs: dict[str, Any] = {
         k: v for k, v in config.metadata.model_dump().items() if v is not None
     }
-    attrs["id"] = config.id
+    # Not "id": ACDD reserves that (+ "naming_authority", already a settable
+    # MetadataSpec field) for whichever downstream system formally
+    # publishes/archives this data and assigns its own citable identifier —
+    # our internal dataset slug would collide with that if it claimed "id"
+    # itself.
+    attrs["unis_id"] = config.id
     attrs["platform_type"] = config.platform_type
+    return attrs
+
+
+def _build_coverage_attrs(ds: xr.Dataset) -> dict[str, Any]:
+    """ACDD-style geospatial/temporal coverage attributes, computed from the
+    actual built dataset — so they reflect any start/end/variables narrowing
+    a caller applied, not the file index's overall span (see
+    resolve_time_coverage() for that). Omitted rather than erroring when
+    time is empty (e.g. a query window with no data) or latitude/longitude
+    isn't present (e.g. narrowed away by a `variables` filter, or a mobile
+    dataset whose config never mapped position columns) — the same
+    "missing data is silently absent, not an error" convention used
+    throughout this pipeline.
+    """
+    attrs: dict[str, Any] = {}
+
+    time_values = ds["time"].values
+    if time_values.size > 0:
+        start = pd.Timestamp(time_values.min())
+        end = pd.Timestamp(time_values.max())
+        attrs["time_coverage_start"] = f"{start.isoformat()}Z"
+        attrs["time_coverage_end"] = f"{end.isoformat()}Z"
+
+    for name, min_key, max_key in (
+        ("latitude", "geospatial_lat_min", "geospatial_lat_max"),
+        ("longitude", "geospatial_lon_min", "geospatial_lon_max"),
+    ):
+        if name not in ds.variables:
+            continue
+        values = ds[name].values.astype("float64")
+        if values.size and not np.all(np.isnan(values)):
+            attrs[min_key] = float(np.nanmin(values))
+            attrs[max_key] = float(np.nanmax(values))
+
     return attrs
 
 

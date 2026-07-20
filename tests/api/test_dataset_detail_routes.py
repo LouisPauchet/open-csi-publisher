@@ -75,6 +75,26 @@ def test_detail_time_coverage_matches_known_real_bounds(client):
     assert body["time_coverage"]["end"] >= "2026-07-17T11:30:00"
 
 
+def test_detail_metadata_includes_computed_provenance_and_coverage_attrs(client):
+    # The detail route builds the full dataset (like /data and the downloads
+    # do) specifically so `metadata` can carry everything build_dataset()
+    # computes, not just the static config-declared fields — the frontend
+    # detail panel relies on this to show "all the available metadata".
+    body = client.get("/datasets/hanna_resvoll_10min").json()
+    metadata = body["metadata"]
+    assert metadata["unis_id"] == "hanna_resvoll_10min"
+    assert "id" not in metadata
+    assert metadata["processing_software_version"]
+    assert metadata["config_hash"]
+    assert "history" in metadata
+    assert metadata["time_coverage_start"]
+    assert metadata["time_coverage_end"]
+    assert "geospatial_lat_min" in metadata
+    assert "geospatial_lat_max" in metadata
+    assert "geospatial_lon_min" in metadata
+    assert "geospatial_lon_max" in metadata
+
+
 def test_detail_unknown_id_404(client):
     assert client.get("/datasets/does_not_exist").status_code == 404
 

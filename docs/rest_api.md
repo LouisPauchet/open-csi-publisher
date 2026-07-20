@@ -24,9 +24,27 @@ mobile platforms — see below).
 
 ## `GET /datasets/{id}`
 
-Full metadata: title, all metadata fields, platform_type, access, the variable list
-(name/standard_name/units/dtype), the raw deployments list, and `time_coverage`
-(`{start, end}` from the file index, or `null` if the dataset has no data yet).
+Calls `build_dataset()` (the full dataset, like `/data` and the downloads do — more work
+than a config-only lookup, but it's what lets `metadata` below carry everything
+`build_dataset()` computes, not just the static config-declared fields). Response
+includes: `title`, `platform_type`, `access`, the variable list
+(name/standard_name/units/dtype), the raw deployments list, `time_coverage` (`{start,
+end}`, or `null` if the dataset has no data yet), and `metadata` — every config-declared
+metadata field (including arbitrary extra keys like `department`) *plus* everything
+computed at build time:
+
+| Key(s) | Meaning |
+|---|---|
+| `unis_id` | This portal's internal dataset id — deliberately not `id`; see below. |
+| `processing_software_version`, `config_hash`, `config_version_timestamp`, `history` | Provenance — which app/config version produced this. |
+| `geospatial_lat_min`/`_max`, `geospatial_lon_min`/`_max` | ACDD-style bounding box, computed from the actual data (fixed stations: constant; mobile: real track extent). Omitted if latitude/longitude isn't present. |
+| `time_coverage_start`/`_end` | ISO 8601 UTC, computed from the actual `time` values (not the file index) — see `core/builder.py::_build_coverage_attrs`. |
+
+**Why `unis_id`, not `id`**: ACDD reserves `id` (+ `naming_authority`, a settable
+`MetadataSpec` field) for whichever downstream system formally publishes/archives this
+data and assigns its own citable identifier. This portal isn't that publisher, so its
+own internal slug uses a namespaced attribute instead of claiming `id` for itself. The
+same convention applies to the NetCDF/OPeNDAP/CSV global attributes below.
 
 ## `GET /datasets/{id}/deployments`
 

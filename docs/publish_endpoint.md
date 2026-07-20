@@ -46,10 +46,13 @@ generated last month reflects last month's config, permanently. This is delibera
 (`implementation_plan.md` §4.4) — a correction, if ever needed, is a manual action, not
 something this endpoint does automatically.
 
-Generated files carry provenance attributes: `processing_software_version`,
-`config_hash`, `config_version_timestamp`. Cached under
-`{settings.publish_cache_dir}/{dataset_id}/` (default `local/publish_cache/`,
-gitignored like the rest of `local/`).
+Generated files carry provenance attributes (`processing_software_version`,
+`config_hash`, `config_version_timestamp`, `history`) and ACDD-style coverage
+attributes (`geospatial_lat_min`/`_max`, `geospatial_lon_min`/`_max`,
+`time_coverage_start`/`_end`) — see [rest_api.md](rest_api.md)'s `GET /datasets/{id}`
+section for the full list, attached by `build_dataset()` to every build, not just this
+endpoint. Cached under `{settings.publish_cache_dir}/{dataset_id}/` (default
+`local/publish_cache/`, gitignored like the rest of `local/`).
 
 ## Manual verification
 

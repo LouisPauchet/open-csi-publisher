@@ -35,6 +35,10 @@ explains the shape; read those files alongside it for concrete values.
   listing table shows it as its own column (instead of dumping every metadata field
   into the row — that full set is still available in the detail panel once a dataset is
   selected), so it's worth setting to a short, human-readable summary of the station.
+  `naming_authority` is left unset by default deliberately — it's an ACDD field for
+  whichever downstream system formally publishes/archives this data, not this portal
+  itself (see `unis_id` in [rest_api.md](rest_api.md)); set it only if this deployment
+  *is* that publisher.
 - `output.file_naming` — filename template for generated monthly files, used by the
   [publish endpoint](publish_endpoint.md) (e.g. `{station}_{table}_{yyyy}-{mm}.nc`).
 - `output.publish` — whether this dataset is exposed via the publish endpoint at all.

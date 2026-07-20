@@ -18,10 +18,9 @@ from open_csi_publisher.api.schemas import (
     TimeCoverage,
     VariableDetail,
 )
-from open_csi_publisher.core.builder import build_dataset, resolve_time_coverage
+from open_csi_publisher.core.builder import build_dataset
 from open_csi_publisher.core.config_versioning import get_versioned_config
 from open_csi_publisher.core.export import render_csv_with_metadata_header
-from open_csi_publisher.index.service import refresh_and_get_index
 from open_csi_publisher.sources import DatasetLocation
 
 router = APIRouter()
@@ -38,15 +37,32 @@ def get_dataset_detail(
     )
     require_visible(config, user)
 
-    index_entries = refresh_and_get_index(
-        session, location.dataset_id, config.source_config, location.data_provider
+    # The full dataset (not just the file index) is built here — more work
+    # than this route used to do, but it's what makes `metadata` below able
+    # to carry everything build_dataset() computes (provenance, geospatial/
+    # time coverage), not just the static config-declared fields. Same cost
+    # /data and the downloads already pay for the same reason.
+    ds = build_dataset(
+        location.dataset_id,
+        session=session,
+        config_provider=location.config_provider,
+        data_provider=location.data_provider,
     )
-    coverage = resolve_time_coverage(index_entries)
+
+    time_values = ds["time"].values
+    coverage = (
+        TimeCoverage(
+            start=pd.Timestamp(time_values.min()).to_pydatetime(),
+            end=pd.Timestamp(time_values.max()).to_pydatetime(),
+        )
+        if time_values.size > 0
+        else None
+    )
 
     return DatasetDetail(
         id=config.id,
         title=config.metadata.title,
-        metadata={k: v for k, v in config.metadata.model_dump().items() if v is not None},
+        metadata=dict(ds.attrs),
         platform_type=config.platform_type,
         access=config.access,
         variables=[
@@ -56,7 +72,7 @@ def get_dataset_detail(
             for v in config.variables
         ],
         deployments=[_to_deployment_info(d) for d in config.deployments],
-        time_coverage=TimeCoverage(start=coverage[0], end=coverage[1]) if coverage else None,
+        time_coverage=coverage,
     )
 
 

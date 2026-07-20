@@ -2,8 +2,11 @@
 // marker) shows metadata and compact icon buttons to access the dataset —
 // OPeNDAP, NetCDF/CSV download, metadata + deployment history JSON — reusing
 // the exact same REST endpoints already built for that purpose rather than
-// duplicating any dataset-building logic here. Exposes window.showDatasetPanel()
-// so map.js can call it too.
+// duplicating any dataset-building logic here. Renders instantly from the
+// cheap data a caller already has, then fetches GET /datasets/{id} to fill
+// in everything build_dataset() computes (provenance, geospatial/time
+// coverage) that isn't cheap enough to embed in every listing row. Exposes
+// window.showDatasetPanel() so map.js can call it too.
 
 const ICON_DOWNLOAD =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
@@ -62,7 +65,41 @@ function highlightRow(row) {
   row.classList.add("selected");
 }
 
+// Renders immediately from whatever's cheaply available (the listing row's
+// embedded data-meta, or a prior fetch), then fetches /datasets/{id} for the
+// full computed metadata (provenance, geospatial/time coverage, any extra
+// config keys) and re-renders once that arrives — so the panel never sits
+// empty waiting on a network round-trip, but still ends up showing
+// everything build_dataset() computes, not just what's cheap enough to
+// embed in every listing row.
 function showDatasetPanel(dataset) {
+  const panel = document.getElementById("dataset-panel");
+  if (!panel) return;
+  panel.dataset.selectedId = dataset.id;
+
+  renderPanel(dataset);
+  fetchFullMetadata(dataset);
+}
+
+async function fetchFullMetadata(dataset) {
+  let response;
+  try {
+    response = await fetch(`/datasets/${encodeURIComponent(dataset.id)}`);
+  } catch (err) {
+    return; // offline/network error — the already-rendered panel stands
+  }
+  if (!response.ok) return;
+  const detail = await response.json();
+
+  const panel = document.getElementById("dataset-panel");
+  // the user may have already selected a different dataset by the time this
+  // resolves — a stale response must not clobber the panel out from under them
+  if (!panel || panel.dataset.selectedId !== dataset.id) return;
+
+  renderPanel({ ...dataset, metadata: detail.metadata });
+}
+
+function renderPanel(dataset) {
   const panel = document.getElementById("dataset-panel");
   if (!panel) return;
 

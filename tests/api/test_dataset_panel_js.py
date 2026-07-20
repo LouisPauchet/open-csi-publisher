@@ -109,3 +109,23 @@ def test_dataset_panel_js_popovers_start_hidden_and_close_on_outside_click():
     content = PANEL_JS.read_text(encoding="utf-8")
     assert '"panel-popover panel-download-popover hidden"' in content
     assert "closeAllPopovers" in content
+
+
+def test_dataset_panel_js_fetches_full_metadata_after_the_initial_render():
+    # renderPanel(dataset) runs synchronously first (so the panel is never
+    # left empty during the round-trip); fetchFullMetadata() then hits the
+    # detail endpoint for everything build_dataset() computes that isn't
+    # cheap enough to embed in every listing row (provenance, geospatial/
+    # time coverage) and re-renders once it lands.
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "fetchFullMetadata" in content
+    assert "fetch(`/datasets/" in content
+    assert "detail.metadata" in content
+
+
+def test_dataset_panel_js_guards_against_a_stale_fetch_response():
+    # if the user clicks a different row before the fetch for the first one
+    # resolves, the late response must not clobber the panel that's now
+    # showing a different dataset
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "selectedId" in content
