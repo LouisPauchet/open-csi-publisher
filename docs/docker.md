@@ -55,9 +55,9 @@ is actually mounted over `/app/sample_configs`.
 image's `WORKDIR`) so the relative `SOURCES_FILE`/`BRANDING_FILE`/`PUBLISH_CACHE_DIR`
 defaults resolve correctly inside the container.
 
-For Postgres instead of the default SQLite, add the `postgres` extra to the image build
-(`uv sync --frozen --no-dev --no-editable --extra postgres` in the Dockerfile's second
-`uv sync`) and point `DATABASE_URL` at it:
+The image always includes the `postgres` extra (psycopg), so switching from the default
+SQLite is just a `DATABASE_URL` change — no rebuild, and no special step for anyone
+running the already-published image (e.g. pulled from GHCR):
 
 ```yaml
 DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/open_csi_publisher
