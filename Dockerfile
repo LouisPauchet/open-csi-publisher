@@ -13,10 +13,13 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Dependencies only first — cached independently of source changes.
+# Dependencies only first — cached independently of source changes. Always
+# includes the `postgres` extra (psycopg) so the published image supports a
+# postgresql+psycopg:// DATABASE_URL out of the box — nobody consuming the
+# built image (e.g. from GHCR) has to rebuild it just to switch off SQLite.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev --extra postgres
 
 # Now the project itself. README.md is only needed because pyproject.toml
 # declares it as the package's `readme`. No config (sample_configs/, .env,
@@ -29,7 +32,7 @@ COPY README.md ./
 # real copy — fine for local dev, broken once only .venv/ (not src/) is
 # copied into the runtime stage below.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable --extra postgres
 
 # --- runtime --------------------------------------------------------------
 # No uv, no build tools, no dev dependencies (pytest/ruff/httpx) — just
