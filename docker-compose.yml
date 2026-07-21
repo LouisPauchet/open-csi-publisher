@@ -6,9 +6,9 @@ services:
       - "8000:8000"
     environment:
       # --- state store (core/config_versioning, index/service, publish_log) ---
-      # Default: SQLite under the `local` volume below. For Postgres instead:
+      # Default: SQLite under the `local` volume below. The image always has
+      # psycopg baked in (see Dockerfile), so Postgres is just:
       #   DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/open_csi_publisher
-      # (needs the `postgres` extra baked into the image — see Dockerfile/docs/docker.md)
       DATABASE_URL: sqlite:///./local/state.db
 
       # --- sources / branding (relative to BASE_DIR) ---
