@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 _NA_VALUES = ["NAN"]
+_MARKER = "TOA5"
+_INFO_ROW_FIELD_COUNT = 8
+
+
+class Toa5FormatError(ValueError):
+    """Raised when a file's header doesn't have the shape of a TOA5 file — either
+    the info row doesn't unpack into the expected 8 fields, or its first field
+    isn't the literal `TOA5` marker. Lets callers (the provider's file matching,
+    the CLI's config validator) distinguish "this file isn't TOA5 at all" from
+    other parse failures, regardless of the file's extension."""
 
 
 @dataclass(frozen=True)
@@ -51,8 +61,14 @@ def parse_toa5_header(path: Path) -> Toa5Header:
         units = next(reader)
         agg_types = next(reader)
 
+    if len(info_row) != _INFO_ROW_FIELD_COUNT:
+        raise Toa5FormatError(
+            f"{path}: expected {_INFO_ROW_FIELD_COUNT} fields in the TOA5 info row, "
+            f"found {len(info_row)}"
+        )
+
     (
-        _marker,
+        marker,
         station_name,
         logger_model,
         serial_no,
@@ -61,6 +77,9 @@ def parse_toa5_header(path: Path) -> Toa5Header:
         program_sig,
         table_name,
     ) = info_row
+
+    if marker != _MARKER:
+        raise Toa5FormatError(f"{path}: expected {_MARKER!r} marker, found {marker!r}")
 
     return Toa5Header(
         station_name=station_name,

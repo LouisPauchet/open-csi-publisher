@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from open_csi_publisher.providers.data.loggernet.toa5 import (
+    Toa5FormatError,
     parse_toa5_file,
     parse_toa5_header,
 )
@@ -131,6 +132,32 @@ def test_empty_file_time_bounds_are_none(mount_root, tmp_path):
     assert parsed.n_rows == 0
     assert parsed.time_start is None
     assert parsed.time_end is None
+
+
+def test_parse_toa5_header_rejects_wrong_marker(tmp_path):
+    path = tmp_path / "not_toa5.dat"
+    path.write_text(
+        '"FOO5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(Toa5FormatError):
+        parse_toa5_header(path)
+
+
+def test_parse_toa5_header_rejects_wrong_field_count(tmp_path):
+    path = tmp_path / "malformed.dat"
+    path.write_text(
+        '"TOA5","Station","CR1000"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(Toa5FormatError):
+        parse_toa5_header(path)
 
 
 @requires_mount
