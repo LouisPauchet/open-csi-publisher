@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from loguru import logger
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.core.config_schema import DatasetConfig
@@ -21,9 +23,15 @@ def get_versioned_config(
     current_version = repository.get_current_config_version(session, dataset_id)
 
     if current_version is None or current_version.hash != current_hash:
+        logger.info("loading and validating config for dataset {} (hash {})", dataset_id, current_hash)
         content = config_provider.load_config(dataset_id)
         repository.record_config_version(session, dataset_id, current_hash, content)
     else:
+        logger.debug("using cached config version for dataset {} (hash unchanged)", dataset_id)
         content = current_version.content
 
-    return DatasetConfig.model_validate(content)
+    try:
+        return DatasetConfig.model_validate(content)
+    except ValidationError:
+        logger.error("config for dataset {} failed validation", dataset_id)
+        raise

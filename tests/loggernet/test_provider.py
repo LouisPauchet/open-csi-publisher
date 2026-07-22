@@ -94,6 +94,32 @@ def test_matched_files_logs_a_warning_via_loguru_for_each_skipped_file(tmp_path,
     assert str(not_toa5) in caplog.text
 
 
+# --- get_file_index logging summary ----------------------------------------------
+
+
+def test_get_file_index_logs_a_summary_of_matched_parsed_and_reused_files(tmp_path, caplog):
+    (tmp_path / "Station_Table.dat").write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","AirT_C"\n'
+        '"TS","RN","Deg C"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+
+    caplog.clear()
+    first = provider.get_file_index(config)
+    assert "1 files matched" in caplog.text
+    assert "1 newly parsed" in caplog.text
+
+    caplog.clear()
+    provider.get_file_index(config, previous=first)
+    assert "0 newly parsed" in caplog.text
+    assert "1 reused from previous index" in caplog.text
+
+
 def test_get_file_index_ignores_non_toa5_files_matching_the_glob(tmp_path):
     valid = tmp_path / "Station_Table.csv"
     valid.write_text(

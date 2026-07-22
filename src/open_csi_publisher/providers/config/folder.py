@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from open_csi_publisher.providers.base import ConfigProvider
 
 
@@ -24,7 +26,12 @@ class FolderConfigProvider(ConfigProvider):
         return sorted(p.stem for p in self._folder.glob("*.json"))
 
     def load_config(self, dataset_id: str) -> dict[str, Any]:
-        return json.loads(self._path_for(dataset_id).read_text(encoding="utf-8"))
+        path = self._path_for(dataset_id)
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            logger.error("failed to parse {} as JSON", path)
+            raise
 
     def config_hash(self, dataset_id: str) -> str:
         return hashlib.sha256(self._path_for(dataset_id).read_bytes()).hexdigest()

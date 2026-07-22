@@ -32,6 +32,7 @@ class LoggerNetDataProvider(DataProvider):
         previous_by_name = {r.file_name: r for r in previous}
 
         records: list[FileRecord] = []
+        n_parsed = 0
         for c in classified:
             rel_name = c.path.relative_to(self._data_root).as_posix()
             prev = previous_by_name.get(rel_name)
@@ -41,17 +42,26 @@ class LoggerNetDataProvider(DataProvider):
                     records.append(prev)  # closed archived files are never reparsed
                 else:
                     records.append(self._parse_record(c.path, rel_name, "archived", "closed", source_config))
+                    n_parsed += 1
                 continue
 
             # live: at most one, per classify_files
             current_size = c.path.stat().st_size
             if prev is None or prev.size != current_size:
                 records.append(self._parse_record(c.path, rel_name, "live", "active", source_config))
+                n_parsed += 1
             elif prev.status == "active":
                 records.append(replace(prev, status="closed"))  # unchanged since last check
             else:
                 records.append(prev)  # already closed, belt-and-suspenders re-stat confirmed no change
 
+        logger.info(
+            "file index for {}: {} files matched, {} newly parsed, {} reused from previous index",
+            source_config.file_pattern,
+            len(matched),
+            n_parsed,
+            len(matched) - n_parsed,
+        )
         return records
 
     def read_range(
