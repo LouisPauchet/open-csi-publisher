@@ -57,3 +57,11 @@ async def auth_callback(request: Request):
     userinfo = await client.userinfo(token=token)
     request.session["user"] = {"subject": userinfo["sub"], "email": userinfo.get("email")}
     return RedirectResponse(url="/")
+
+
+@router.get("/logout")
+async def logout(request: Request):
+    if not settings.oidc_configured:
+        raise HTTPException(status_code=404)
+    request.session.pop("user", None)
+    return RedirectResponse(url="/")
