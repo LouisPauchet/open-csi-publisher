@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from open_csi_publisher.settings import settings
 
@@ -40,3 +41,19 @@ async def login(request: Request):
         raise HTTPException(status_code=404)
     client = _oauth_client()
     return await client.authorize_redirect(request, _callback_url(request))
+
+
+@router.get("/callback")
+async def auth_callback(request: Request):
+    """Exchange the authorization code and establish the session. Identity comes
+    from the OIDC userinfo endpoint (not raw ID-token claims): standard and
+    OIDC-compliant, and it means this callback never needs to verify an ID
+    token's JWT signature itself — the userinfo call already proves the access
+    token (and therefore the code exchange) was genuine."""
+    if not settings.oidc_configured:
+        raise HTTPException(status_code=404)
+    client = _oauth_client()
+    token = await client.authorize_access_token(request)
+    userinfo = await client.userinfo(token=token)
+    request.session["user"] = {"subject": userinfo["sub"], "email": userinfo.get("email")}
+    return RedirectResponse(url="/")

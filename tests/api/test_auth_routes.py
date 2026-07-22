@@ -70,3 +70,37 @@ def test_login_is_404_when_oidc_only_partially_configured(tmp_path, monkeypatch)
     response = client.get("/auth/login", follow_redirects=False)
 
     assert response.status_code == 404
+
+
+def _extract_state(location: str) -> str:
+    from urllib.parse import parse_qs, urlparse
+
+    return parse_qs(urlparse(location).query)["state"][0]
+
+
+@respx.mock
+def test_callback_exchanges_code_and_establishes_a_session(tmp_path, monkeypatch):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    _set_full_oidc_config(monkeypatch)
+    respx.get(DISCOVERY_URL).mock(return_value=httpx.Response(200, json=DISCOVERY_DOC))
+    respx.post(DISCOVERY_DOC["token_endpoint"]).mock(
+        return_value=httpx.Response(
+            200,
+            json={"access_token": "fake-access-token", "token_type": "Bearer", "expires_in": 3600},
+        )
+    )
+    respx.get(DISCOVERY_DOC["userinfo_endpoint"]).mock(
+        return_value=httpx.Response(200, json={"sub": "abc123", "email": "a@b.com"})
+    )
+
+    client = TestClient(create_app())
+    login_response = client.get("/auth/login", follow_redirects=False)
+    state = _extract_state(login_response.headers["location"])
+
+    callback_response = client.get(
+        "/auth/callback", params={"code": "fake-code", "state": state}, follow_redirects=False
+    )
+
+    assert callback_response.status_code in (302, 307)
+    assert callback_response.headers["location"] == "/"
+    assert client.cookies.get("session")
