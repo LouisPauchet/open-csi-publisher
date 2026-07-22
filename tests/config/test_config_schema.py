@@ -157,6 +157,61 @@ def test_old_name_colliding_with_another_variables_raw_name_rejected():
         DatasetConfig.model_validate(doc)
 
 
+def test_extra_dimension_accepts_a_list_of_dimensions_with_matching_member_value_lists():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["variables"].append(
+        {
+            "extra_dimension": [
+                {"name": "height", "units": "m"},
+                {"name": "channel", "units": "1"},
+            ],
+            "members": [
+                {"raw_name": "wind_2m_ch1", "dimension_value": [2, 1]},
+                {"raw_name": "wind_2m_ch2", "dimension_value": [2, 2]},
+                {"raw_name": "wind_10m_ch1", "dimension_value": [10, 1]},
+            ],
+            "standard_name": "wind_speed",
+        }
+    )
+    config = DatasetConfig.model_validate(doc)
+    grouped = next(v for v in config.variables if v.extra_dimension is not None and v.standard_name == "wind_speed")
+    assert [d.name for d in grouped.extra_dimension] == ["height", "channel"]
+    assert grouped.members[0].dimension_value == [2, 1]
+
+
+def test_extra_dimension_member_dimension_value_list_length_mismatch_rejected():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["variables"].append(
+        {
+            "extra_dimension": [
+                {"name": "height", "units": "m"},
+                {"name": "channel", "units": "1"},
+            ],
+            "members": [
+                {"raw_name": "wind_2m_ch1", "dimension_value": [2]},
+            ],
+            "standard_name": "wind_speed",
+        }
+    )
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate(doc)
+
+
+def test_extra_dimension_single_dimension_still_rejects_a_list_valued_dimension_value():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["variables"].append(
+        {
+            "extra_dimension": {"name": "pyr_channel", "units": "nm"},
+            "members": [
+                {"raw_name": "pyr_ch1", "dimension_value": [1]},
+            ],
+            "standard_name": "surface_downwelling_shortwave_flux_in_air",
+        }
+    )
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate(doc)
+
+
 def test_file_pattern_not_ending_in_dat_rejected():
     doc = copy.deepcopy(FIXED_CONFIG)
     doc["source_config"]["file_pattern"] = "station/Table_10minute.dat*"
