@@ -10,6 +10,7 @@ from open_csi_publisher.api.auth import User, get_current_user
 from open_csi_publisher.api.deps import get_branding, get_dataset_locations, get_db_session
 from open_csi_publisher.api.services import list_visible_datasets
 from open_csi_publisher.branding import BrandingConfig
+from open_csi_publisher.settings import settings
 from open_csi_publisher.sources import DatasetLocation
 
 router = APIRouter()
@@ -66,14 +67,24 @@ def datasets_page(
                 "meta_value": meta_value or "",
             },
             "branding": branding,
+            "user": user,
+            "oidc_enabled": settings.oidc_configured,
         },
     )
 
 
 @router.get("/map")
-def map_page(request: Request, branding: BrandingConfig = Depends(get_branding)):
+def map_page(
+    request: Request,
+    branding: BrandingConfig = Depends(get_branding),
+    user: User | None = Depends(get_current_user),
+):
     # No server-side dataset data to embed: static/js/map.js fetches /datasets
     # (and, per mobile dataset, /datasets/{id}/data) itself at runtime, reusing
     # the same access-controlled endpoints rather than duplicating that logic
     # here — a restricted dataset is excluded there exactly once already.
-    return templates.TemplateResponse(request, "map.html", {"branding": branding})
+    return templates.TemplateResponse(
+        request,
+        "map.html",
+        {"branding": branding, "user": user, "oidc_enabled": settings.oidc_configured},
+    )
