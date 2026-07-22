@@ -1,6 +1,6 @@
 [project]
 name = "open-csi-publisher"
-version = "0.1.2"
+version = "0.2.0"
 description = "UNIS environmental monitoring data portal"
 readme = "README.md"
 authors = [
