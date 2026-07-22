@@ -14,13 +14,19 @@ class User(BaseModel):
 async def get_current_user(request: Request) -> User | None:
     """FastAPI dependency resolving the caller's identity from the session.
 
-    With no OIDC provider configured (settings.oidc_issuer is None — the
-    default), this always returns None: every caller is anonymous, so
-    restricted datasets stay hidden (implementation_plan.md §10). This is the
-    sole extension point future Entra ID/OIDC work will change: once wired in,
-    a valid session cookie (set by an OIDC callback route not built in this
-    phase) would resolve to a User here instead of an unconditional None.
+    With OIDC not fully configured (settings.oidc_configured is False — the
+    default, and also the state of a partially-configured setup, see
+    Settings.oidc_configured), this always returns None: every caller is
+    anonymous, so restricted datasets stay hidden (implementation_plan.md
+    §10). When configured, identity comes from the `user` claims dict the
+    OIDC callback route (api/routers/auth.py) stored in the session on
+    successful login — never re-verified here, since the session cookie
+    itself is what's trusted (signed by SessionMiddleware, registered only
+    when oidc_configured is True).
     """
-    if settings.oidc_issuer is None:
+    if not settings.oidc_configured:
         return None
-    return None  # placeholder branch, not implemented this phase
+    claims = request.session.get("user")
+    if claims is None:
+        return None
+    return User(**claims)

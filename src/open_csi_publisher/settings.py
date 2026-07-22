@@ -22,6 +22,22 @@ class Settings(BaseSettings):
     oidc_client_secret: str | None = None
     session_secret_key: str | None = None
 
+    @property
+    def oidc_configured(self) -> bool:
+        """True only when every field the OIDC login flow needs is set. A partially
+        configured OIDC setup (e.g. `oidc_issuer` set but `session_secret_key`
+        missing) is treated the same as entirely unset — login is disabled, not a
+        startup crash — so every caller of this property is the single place that
+        decides "is login on", instead of each one separately checking
+        `oidc_issuer is not None`.
+        """
+        return bool(
+            self.oidc_issuer
+            and self.oidc_client_id
+            and self.oidc_client_secret
+            and self.session_secret_key
+        )
+
     # Publish endpoint (implementation_plan.md §11): a separate, simpler
     # static-API-key mechanism, not the OIDC session flow above — a small
     # number of trusted server-to-server consumers (the data center), not

@@ -27,6 +27,16 @@
         {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
         <span>{{ branding.site_name }}</span>
       </a>
+      {% if oidc_enabled %}
+      <div class="site-header-auth">
+        {% if user %}
+        <span class="site-header-user">{{ user.email or user.subject }}</span>
+        <a class="site-header-logout" href="/auth/logout">Log out</a>
+        {% else %}
+        <a class="site-header-login" href="/auth/login">Log in</a>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
   </header>
   <main>
