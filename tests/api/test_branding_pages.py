@@ -81,3 +81,15 @@ def test_listing_page_falls_back_to_generic_branding_when_file_absent(
     body = client.get("/").text
     assert "unis-logo-liggende.svg" not in body
     assert "--brand-primary: #006199" not in body
+
+
+def test_listing_page_includes_project_creator_credit(client):
+    body = client.get("/").text
+    assert 'class="site-footer"' in body
+    assert "Built by Louis Pauchet" in body
+
+
+def test_map_page_includes_project_creator_credit(client):
+    body = client.get("/map").text
+    assert 'class="site-footer"' in body
+    assert "Built by Louis Pauchet" in body
