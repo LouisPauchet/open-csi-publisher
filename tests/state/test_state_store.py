@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import BigInteger, inspect
 from sqlalchemy.exc import IntegrityError
 
 from open_csi_publisher.core.models import FileRecord
@@ -14,6 +14,18 @@ from open_csi_publisher.state.models import FileIndexEntry
 def test_create_all_creates_expected_tables(sqlite_engine):
     table_names = set(inspect(sqlite_engine).get_table_names())
     assert {"config_versions", "file_index", "publish_log"} <= table_names
+
+
+def test_file_index_size_column_is_big_integer():
+    # FileRecord.size is repurposed by non-LoggerNet providers as a generic
+    # "has this changed" token, not a byte count: GenericCsvDataProvider uses
+    # path.stat().st_mtime_ns (nanoseconds since epoch, ~1.8e18) and
+    # ThingsBoardDataProvider uses the latest telemetry point's epoch-
+    # millisecond timestamp (~1.8e12) — both already exceed a 4-byte
+    # INTEGER's ~2.1e9 range. SQLite doesn't enforce column width, so this
+    # passed silently in tests/local dev; PostgreSQL does, raising
+    # psycopg.errors.NumericValueOutOfRange on insert.
+    assert isinstance(FileIndexEntry.__table__.c.size.type, BigInteger)
 
 
 def test_get_current_config_version_none_when_unrecorded(db_session):
@@ -50,6 +62,24 @@ def test_file_index_upsert_inserts_new_entry(db_session):
     repository.upsert_file_index_entry(db_session, "station_a", record)
 
     entries = repository.list_file_index(db_session, "station_a")
+    assert entries == [record]
+
+
+def test_file_index_upsert_accepts_a_thingsboard_scale_change_token(db_session):
+    # A real epoch-millisecond change token (ThingsBoardDataProvider) — well
+    # past 4-byte INTEGER range, must round-trip exactly.
+    record = FileRecord(
+        file_name="OpenRenewableLAB",
+        file_role="live",
+        size=1784763236500,
+        time_start=datetime(2026, 1, 1),
+        time_end=datetime(2026, 1, 2),
+        variables=["power"],
+        status="active",
+    )
+    repository.upsert_file_index_entry(db_session, "OpenRenewableLAB", record)
+
+    entries = repository.list_file_index(db_session, "OpenRenewableLAB")
     assert entries == [record]
 
 
