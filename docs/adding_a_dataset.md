@@ -113,10 +113,13 @@ There's no CLI support for this source type yet (`open-csi-config` stays LoggerN
    `thingsboard` source entry per tenant, each with its own `id` and a distinct
    `credentials_env_prefix` (e.g. `THINGSBOARD_SVALBARD`, `THINGSBOARD_NY_ALESUND`).
 4. **Set the connection env vars**, named after the prefix from step 3 — for
-   `credentials_env_prefix: THINGSBOARD_SVALBARD`, that's `THINGSBOARD_SVALBARD_BASE_URL`,
-   `THINGSBOARD_SVALBARD_USERNAME`, `THINGSBOARD_SVALBARD_PASSWORD` (see
-   [running_locally.md](running_locally.md)). A second tenant just needs its own prefix
-   and its own three env vars — nothing else changes. Put these in a gitignored file
+   `credentials_env_prefix: THINGSBOARD_SVALBARD`, that's `THINGSBOARD_SVALBARD_BASE_URL`
+   plus either `THINGSBOARD_SVALBARD_API_KEY` (a ThingsBoard API key, sent as
+   `X-Authorization: ApiKey <key>` with no login step) or the pair
+   `THINGSBOARD_SVALBARD_USERNAME`/`THINGSBOARD_SVALBARD_PASSWORD` (see
+   [running_locally.md](running_locally.md)). If both are set, the API key wins. A second
+   tenant just needs its own prefix and its own env vars — nothing else changes. Put these
+   in a gitignored file
    under `local/` (e.g. `local/.env`), **not** a root-level `.env`, which
    pydantic-settings loads unconditionally and would leak a customized `SOURCES_FILE`
    into the test suite — load it explicitly per-invocation instead, via
