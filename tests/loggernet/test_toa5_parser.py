@@ -147,6 +147,24 @@ def test_parse_toa5_header_rejects_wrong_marker(tmp_path):
         parse_toa5_header(path)
 
 
+def test_parse_toa5_file_logs_a_warning_via_loguru_when_falling_back_to_flexible_parsing(
+    tmp_path, caplog
+):
+    path = tmp_path / "odd_timestamps.dat"
+    path.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","AirT_C"\n'
+        '"TS","RN","Deg C"\n'
+        '"","Smp","Avg"\n'
+        '"01/01/2026 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+
+    parse_toa5_file(path)
+
+    assert "falling back to flexible parsing" in caplog.text
+
+
 def test_parse_toa5_header_rejects_file_with_too_few_lines(tmp_path):
     path = tmp_path / "truncated.dat"
     path.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")

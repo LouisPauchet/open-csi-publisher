@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import replace
 from datetime import datetime
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 import xarray as xr
+from loguru import logger
 
 from open_csi_publisher.core.config_schema import LoggerNetSourceConfig
 from open_csi_publisher.core.models import FileRecord
@@ -18,8 +18,6 @@ from open_csi_publisher.providers.data.loggernet.toa5 import (
     parse_toa5_file,
     parse_toa5_header,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class LoggerNetDataProvider(DataProvider):
@@ -98,7 +96,7 @@ class LoggerNetDataProvider(DataProvider):
             try:
                 parse_toa5_header(path)
             except Toa5FormatError as exc:
-                logger.warning("skipping %s: %s", path, exc)
+                logger.warning("skipping {}: {}", path, exc)
                 continue
             valid.append(path)
         return valid

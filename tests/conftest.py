@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from loguru import logger
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -48,3 +49,14 @@ def sqlite_engine():
 def db_session(sqlite_engine):
     with Session(sqlite_engine) as session:
         yield session
+
+
+@pytest.fixture
+def caplog(caplog):
+    """Route loguru's output into pytest's caplog. loguru doesn't propagate into
+    the stdlib `logging` hierarchy on its own, so without this, `caplog.text`/
+    `caplog.records` would never see anything logged via `from loguru import
+    logger`, regardless of level."""
+    handler_id = logger.add(caplog.handler, format="{message}")
+    yield caplog
+    logger.remove(handler_id)

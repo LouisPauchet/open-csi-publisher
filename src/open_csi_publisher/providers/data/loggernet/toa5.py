@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import csv
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import xarray as xr
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 _NA_VALUES = ["NAN"]
@@ -158,7 +156,7 @@ def parse_toa5_file(
             parsed_time = pd.to_datetime(df[timestamp_column], format=_TIMESTAMP_FORMAT)
         except ValueError:
             logger.warning(
-                "timestamps in %s did not match %s, falling back to flexible parsing",
+                "timestamps in {} did not match {}, falling back to flexible parsing",
                 path,
                 _TIMESTAMP_FORMAT,
             )

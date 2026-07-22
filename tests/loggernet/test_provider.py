@@ -74,6 +74,26 @@ def test_matched_files_skips_files_without_a_toa5_header(tmp_path):
     assert matched == [valid]
 
 
+def test_matched_files_logs_a_warning_via_loguru_for_each_skipped_file(tmp_path, caplog):
+    (tmp_path / "Station_Table.csv").write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    not_toa5 = tmp_path / "Station_Table_notes.csv"
+    not_toa5.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    provider.matched_files(config)
+
+    assert "skipping" in caplog.text
+    assert str(not_toa5) in caplog.text
+
+
 def test_get_file_index_ignores_non_toa5_files_matching_the_glob(tmp_path):
     valid = tmp_path / "Station_Table.csv"
     valid.write_text(
