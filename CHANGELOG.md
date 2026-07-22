@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.3.0...open-csi-publisher-v0.3.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* widen file_index.size to BigInteger ([eaba971](https://github.com/LouisPauchet/open-csi-publisher/commit/eaba971de7a58fac9a003ac72dbb305d70af6e89))
+
 ## [0.3.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.2.0...open-csi-publisher-v0.3.0) (2026-07-22)
 
 
