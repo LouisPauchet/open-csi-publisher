@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from open_csi_publisher.api.deps import get_dataset_locations
 from open_csi_publisher.api.opendap import build_opendap_app
-from open_csi_publisher.api.routers import dataset_detail, datasets_api, pages, publish
+from open_csi_publisher.api.routers import auth, dataset_detail, datasets_api, pages, publish
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.db import get_engine, init_db
 from open_csi_publisher.api.deps import get_branding
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(datasets_api.router)
     app.include_router(dataset_detail.router)
     app.include_router(publish.router)
+    app.include_router(auth.router)
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     opendap_app = build_opendap_app(
