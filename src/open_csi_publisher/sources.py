@@ -23,10 +23,11 @@ class SourceEntry:
 
     `credentials_env_prefix` is only meaningful for `type: thingsboard` (unlike
     `config_location`/`data_location`, ignored there) — it names which env vars
-    hold that source's ThingsBoard credentials (`{prefix}_BASE_URL`/
-    `{prefix}_USERNAME`/`{prefix}_PASSWORD`), so multiple thingsboard sources
-    can each point at a different tenant. Defaults to "THINGSBOARD" so a
-    single-tenant sources.yaml entry doesn't need to set it at all.
+    hold that source's ThingsBoard credentials: `{prefix}_BASE_URL` plus either
+    `{prefix}_API_KEY` or `{prefix}_USERNAME`/`{prefix}_PASSWORD` (API key takes
+    precedence if both are set), so multiple thingsboard sources can each point
+    at a different tenant. Defaults to "THINGSBOARD" so a single-tenant
+    sources.yaml entry doesn't need to set it at all.
     """
 
     id: str
@@ -66,16 +67,27 @@ def _get_thingsboard_client(credentials_env_prefix: str) -> ThingsBoardClient:
     Credentials are read directly from the environment (not through
     `Settings`) because the set of valid prefixes is open-ended — defined by
     whatever `sources.yaml` entries exist, not a fixed set of settings fields.
+
+    Either `{prefix}_API_KEY` or `{prefix}_USERNAME`/`{prefix}_PASSWORD` may be
+    set; the API key takes precedence if both are present.
     """
     base_url = os.environ.get(f"{credentials_env_prefix}_BASE_URL")
+    api_key = os.environ.get(f"{credentials_env_prefix}_API_KEY")
     username = os.environ.get(f"{credentials_env_prefix}_USERNAME")
     password = os.environ.get(f"{credentials_env_prefix}_PASSWORD")
-    if not (base_url and username and password):
+    if not base_url or not (api_key or (username and password)):
         raise RuntimeError(
             f"a 'thingsboard' source is configured with credentials_env_prefix="
-            f"{credentials_env_prefix!r} but {credentials_env_prefix}_BASE_URL/"
+            f"{credentials_env_prefix!r} but {credentials_env_prefix}_BASE_URL and "
+            f"either {credentials_env_prefix}_API_KEY or "
             f"{credentials_env_prefix}_USERNAME/{credentials_env_prefix}_PASSWORD "
-            "are not all set"
+            "are not set"
+        )
+    if api_key:
+        return ThingsBoardClient(
+            base_url,
+            api_key=api_key,
+            discovery_ttl_seconds=settings.thingsboard_discovery_interval_seconds,
         )
     return ThingsBoardClient(
         base_url,

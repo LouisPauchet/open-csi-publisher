@@ -87,6 +87,9 @@ A ThingsBoard tenant's connection details (base URL + credentials) live at the
 base_url/credentials, just `device_name`, so it stays identical regardless of which
 tenant the device actually lives on — multiple `thingsboard` source entries (each its own
 tenant) are supported, distinguished by `sources.yaml`'s `credentials_env_prefix`.
+Credentials are either a ThingsBoard API key (`{prefix}_API_KEY`) or a
+username/password pair (`{prefix}_USERNAME`/`{prefix}_PASSWORD`) — the API key takes
+precedence if both are set.
 
 `variables[].raw_name` refers to ThingsBoard **telemetry key names** on that device (the
 same role `raw_name` plays for LoggerNet CSV column names) — there's no separate list of

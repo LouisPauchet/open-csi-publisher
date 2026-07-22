@@ -123,6 +123,56 @@ def test_get_config_provider_and_get_data_provider_thingsboard_share_one_client(
     assert config_provider._client is data_provider._client
 
 
+def test_get_thingsboard_client_uses_api_key_when_set(monkeypatch):
+    monkeypatch.setenv("THINGSBOARD_APIKEY_BASE_URL", "http://apikey.example.test")
+    monkeypatch.setenv("THINGSBOARD_APIKEY_API_KEY", "tb_secret")
+
+    captured = {}
+
+    class RecordingClient:
+        def __init__(
+            self, base_url, username=None, password=None, *, api_key=None, discovery_ttl_seconds=3600
+        ):
+            captured["base_url"] = base_url
+            captured["username"] = username
+            captured["password"] = password
+            captured["api_key"] = api_key
+
+    monkeypatch.setattr(sources_module, "ThingsBoardClient", RecordingClient)
+
+    sources_module._get_thingsboard_client("THINGSBOARD_APIKEY")
+
+    assert captured == {
+        "base_url": "http://apikey.example.test",
+        "username": None,
+        "password": None,
+        "api_key": "tb_secret",
+    }
+
+
+def test_get_thingsboard_client_api_key_takes_precedence_over_credentials(monkeypatch):
+    monkeypatch.setenv("THINGSBOARD_BOTH_BASE_URL", "http://both.example.test")
+    monkeypatch.setenv("THINGSBOARD_BOTH_API_KEY", "tb_secret")
+    monkeypatch.setenv("THINGSBOARD_BOTH_USERNAME", "admin")
+    monkeypatch.setenv("THINGSBOARD_BOTH_PASSWORD", "secret")
+
+    captured = {}
+
+    class RecordingClient:
+        def __init__(
+            self, base_url, username=None, password=None, *, api_key=None, discovery_ttl_seconds=3600
+        ):
+            captured["username"] = username
+            captured["password"] = password
+            captured["api_key"] = api_key
+
+    monkeypatch.setattr(sources_module, "ThingsBoardClient", RecordingClient)
+
+    sources_module._get_thingsboard_client("THINGSBOARD_BOTH")
+
+    assert captured == {"username": None, "password": None, "api_key": "tb_secret"}
+
+
 def test_get_thingsboard_client_uses_custom_credentials_env_prefix(monkeypatch):
     monkeypatch.setenv("THINGSBOARD_SVALBARD_BASE_URL", "http://svalbard.example.test")
     monkeypatch.setenv("THINGSBOARD_SVALBARD_USERNAME", "svalbard-admin")

@@ -227,6 +227,76 @@ def test_extra_dimension_missing_combination_is_nan():
     assert var.sel(height=2, channel=1).values.tolist() == [1.0, 2.0, 3.0, 4.0]
 
 
+def test_numeric_variable_with_mixed_str_and_float_values_is_coerced_to_float():
+    # ThingsBoard's timeseries API returns each point using whatever JSON type it
+    # was originally stored as (useStrictDataTypes reflects storage, not a
+    # normalized type) — the same telemetry key can arrive as a mix of JSON
+    # numbers and numeric-looking JSON strings across points. Left as object
+    # dtype, this breaks to_netcdf/OPeNDAP serialization downstream.
+    raw = xr.Dataset(
+        {"PowerProduction": ("time", np.array([1.5, "2.5", "-0.25", 4.0], dtype=object))},
+        coords={"time": TIME},
+    )
+    spec = VariableSpec(raw_name="PowerProduction", standard_name="power", units="W")
+
+    result = apply_variable_spec(raw, [spec])
+
+    assert result["power"].values.dtype == np.float64
+    assert result["power"].values.tolist() == [1.5, 2.5, -0.25, 4.0]
+    assert "data_quality_warnings" not in result.attrs
+
+
+def test_numeric_variable_with_genuinely_non_numeric_string_becomes_nan_and_warns(caplog):
+    raw = xr.Dataset(
+        {"PowerProduction": ("time", np.array([1.5, "ERROR", 3.0, 4.0], dtype=object))},
+        coords={"time": TIME},
+    )
+    spec = VariableSpec(raw_name="PowerProduction", standard_name="power", units="W")
+
+    result = apply_variable_spec(raw, [spec])
+
+    values = result["power"].values
+    assert values.dtype == np.float64
+    assert np.isnan(values[1])
+    assert values.tolist()[0:1] + values.tolist()[2:] == [1.5, 3.0, 4.0]
+    assert "power" in caplog.text
+    assert "ERROR" in caplog.text
+    assert "power" in result.attrs["data_quality_warnings"]
+    assert "ERROR" in result.attrs["data_quality_warnings"]
+
+
+def test_data_quality_warnings_aggregate_across_multiple_variables():
+    raw = xr.Dataset(
+        {
+            "PowerProduction": ("time", np.array([1.5, "ERROR", 3.0, 4.0], dtype=object)),
+            "PV_Current_mean": ("time", np.array([0.1, 0.2, "BAD", 0.4], dtype=object)),
+        },
+        coords={"time": TIME},
+    )
+    specs = [
+        VariableSpec(raw_name="PowerProduction", standard_name="power", units="W"),
+        VariableSpec(raw_name="PV_Current_mean", standard_name="current", units="A"),
+    ]
+
+    result = apply_variable_spec(raw, specs)
+
+    warnings = result.attrs["data_quality_warnings"]
+    assert "power" in warnings and "ERROR" in warnings
+    assert "current" in warnings and "BAD" in warnings
+
+
+def test_string_dtype_variable_is_never_coerced():
+    raw = xr.Dataset(
+        {"MetSENS_Status": ("time", np.array(["OK", "OK", "ERR", "OK"], dtype=object))},
+        coords={"time": TIME},
+    )
+    spec = VariableSpec(raw_name="MetSENS_Status", dtype="string")
+
+    result = apply_variable_spec(raw, [spec])
+
+    assert result["MetSENS_Status"].values.tolist() == ["OK", "OK", "ERR", "OK"]
+
+
 def test_extra_dimension_preserves_declared_order_not_sorted():
     raw = _ds(
         AirTC_30m_Avg=[1.0, 2.0, 3.0, 4.0],
