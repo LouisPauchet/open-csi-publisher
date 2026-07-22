@@ -25,14 +25,24 @@ class ThingsBoardClient:
     def __init__(
         self,
         base_url: str,
-        username: str,
-        password: str,
+        username: str | None = None,
+        password: str | None = None,
         *,
+        api_key: str | None = None,
         timeout: float = 30.0,
         discovery_ttl_seconds: float = 3600,
     ):
-        self._username = username
-        self._password = password
+        if api_key:
+            self._auth_mode = "api_key"
+            self._api_key = api_key
+        elif username and password:
+            self._auth_mode = "credentials"
+            self._username = username
+            self._password = password
+        else:
+            raise ValueError(
+                "ThingsBoardClient requires either api_key or both username and password"
+            )
         self._http = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout)
         self._token: str | None = None
         self._login_lock = threading.Lock()
@@ -50,6 +60,9 @@ class ThingsBoardClient:
         self._token = response.json()["token"]
 
     def _request(self, method: str, path: str, *, params: dict[str, Any] | None = None) -> httpx.Response:
+        if self._auth_mode == "api_key":
+            return self._http.request(method, path, params=params, headers=self._auth_headers())
+
         with self._login_lock:
             if self._token is None:
                 self._login()
@@ -63,6 +76,8 @@ class ThingsBoardClient:
         return response
 
     def _auth_headers(self) -> dict[str, str]:
+        if self._auth_mode == "api_key":
+            return {"X-Authorization": f"ApiKey {self._api_key}"}
         return {"X-Authorization": f"Bearer {self._token}"}
 
     def list_devices(self, *, page_size: int = 100) -> list[dict[str, Any]]:

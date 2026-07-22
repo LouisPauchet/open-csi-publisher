@@ -48,6 +48,31 @@ def test_login_failure_raises_auth_error():
         c.list_devices()
 
 
+def test_constructing_without_credentials_or_api_key_raises():
+    with pytest.raises(ValueError):
+        ThingsBoardClient(BASE_URL)
+
+
+@respx.mock
+def test_api_key_sent_without_login():
+    login = respx.post(f"{BASE_URL}/api/auth/login").mock(
+        return_value=httpx.Response(200, json={"token": "token-1", "refreshToken": "refresh-1"})
+    )
+    devices_route = respx.get(f"{BASE_URL}/api/tenant/devices").mock(
+        return_value=httpx.Response(200, json={"data": [], "hasNext": False})
+    )
+
+    c = ThingsBoardClient(BASE_URL, api_key="tb_secret")
+    try:
+        c.list_devices()
+    finally:
+        c.close()
+
+    assert login.call_count == 0
+    sent_request = devices_route.calls[0].request
+    assert sent_request.headers["X-Authorization"] == "ApiKey tb_secret"
+
+
 @respx.mock
 def test_401_triggers_one_relogin_and_retry(client):
     login = respx.post(f"{BASE_URL}/api/auth/login").mock(
