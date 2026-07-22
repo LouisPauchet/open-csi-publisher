@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.2.0...open-csi-publisher-v0.3.0) (2026-07-22)
+
+
+### Features
+
+* read ThingsBoard API key from credentials env vars ([03e2a71](https://github.com/LouisPauchet/open-csi-publisher/commit/03e2a71c2384dac62d4921ecbcd002536e04d53d))
+* support ThingsBoard API key authentication in client ([26cd3eb](https://github.com/LouisPauchet/open-csi-publisher/commit/26cd3ebea036f44dc8b995005ccb843caa0d063f))
+
+
+### Bug Fixes
+
+* coerce mixed-type numeric telemetry values and flag data loss ([8e9e504](https://github.com/LouisPauchet/open-csi-publisher/commit/8e9e5048ea14381a9e6dad3b78eb46ac23d4c1b1))
+
+
+### Documentation
+
+* document ThingsBoard API key as an alternative credential ([5f2bed1](https://github.com/LouisPauchet/open-csi-publisher/commit/5f2bed12f6bf7cc830963943750a0a5fc0416ece))
+
 ## [0.2.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.1.2...open-csi-publisher-v0.2.0) (2026-07-22)
 
 
