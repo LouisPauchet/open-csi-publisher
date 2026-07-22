@@ -51,6 +51,50 @@ def test_backup_pattern_is_extension_agnostic():
     assert provider_module._backup_pattern("Station_Table.csv") == "Station_Table.csv.backup*"
 
 
+# --- matched_files skips non-TOA5 files ------------------------------------------
+
+
+def test_matched_files_skips_files_without_a_toa5_header(tmp_path):
+    valid = tmp_path / "Station_Table.csv"
+    valid.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    not_toa5 = tmp_path / "Station_Table_notes.csv"
+    not_toa5.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    matched = provider.matched_files(config)
+
+    assert matched == [valid]
+
+
+def test_get_file_index_ignores_non_toa5_files_matching_the_glob(tmp_path):
+    valid = tmp_path / "Station_Table.csv"
+    valid.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "Station_Table_notes.csv").write_text(
+        "just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8"
+    )
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    records = provider.get_file_index(config)
+
+    assert [r.file_name for r in records] == [valid.name]
+
+
 @requires_mount
 def test_get_file_index_initial_discovery(mount_root):
     provider = LoggerNetDataProvider(mount_root)

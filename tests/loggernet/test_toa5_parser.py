@@ -147,6 +147,13 @@ def test_parse_toa5_header_rejects_wrong_marker(tmp_path):
         parse_toa5_header(path)
 
 
+def test_parse_toa5_header_rejects_file_with_too_few_lines(tmp_path):
+    path = tmp_path / "truncated.dat"
+    path.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")
+    with pytest.raises(Toa5FormatError):
+        parse_toa5_header(path)
+
+
 def test_parse_toa5_header_rejects_wrong_field_count(tmp_path):
     path = tmp_path / "malformed.dat"
     path.write_text(

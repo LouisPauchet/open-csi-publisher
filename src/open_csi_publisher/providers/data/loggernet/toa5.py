@@ -56,10 +56,13 @@ class ParsedToa5File:
 def parse_toa5_header(path: Path) -> Toa5Header:
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
-        info_row = next(reader)
-        column_names = next(reader)
-        units = next(reader)
-        agg_types = next(reader)
+        try:
+            info_row = next(reader)
+            column_names = next(reader)
+            units = next(reader)
+            agg_types = next(reader)
+        except StopIteration:
+            raise Toa5FormatError(f"{path}: fewer than 4 header rows") from None
 
     if len(info_row) != _INFO_ROW_FIELD_COUNT:
         raise Toa5FormatError(
