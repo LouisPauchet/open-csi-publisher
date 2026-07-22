@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, BigInteger, DateTime, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -36,7 +36,7 @@ class FileIndexEntry(Base):
     dataset_id: Mapped[str] = mapped_column(String, index=True)
     file_name: Mapped[str] = mapped_column(String)
     file_role: Mapped[str] = mapped_column(String)
-    size: Mapped[int] = mapped_column(Integer)
+    size: Mapped[int] = mapped_column(BigInteger)
     time_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     time_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     variables: Mapped[list[str]] = mapped_column(JSON)
