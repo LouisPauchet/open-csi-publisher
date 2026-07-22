@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, Sequence
 
 import xarray as xr
+from loguru import logger
 
 from open_csi_publisher.providers.data.loggernet.toa5 import ParsedToa5File
-
-logger = logging.getLogger(__name__)
 
 
 class AmbiguousFileSetError(ValueError):
@@ -92,8 +90,8 @@ def reconcile_fileset(
     programs = {p.header.program_name for p in ordered}
     if len(programs) > 1:
         logger.info(
-            "fileset for %s spans a logger reprogram: program_name differs across "
-            "contributing files (%s)",
+            "fileset for {} spans a logger reprogram: program_name differs across "
+            "contributing files ({})",
             live.path,
             sorted(programs),
         )

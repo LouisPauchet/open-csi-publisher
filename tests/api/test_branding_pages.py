@@ -83,6 +83,16 @@ def test_listing_page_falls_back_to_generic_branding_when_file_absent(
     assert "--brand-primary: #006199" not in body
 
 
+def test_listing_page_includes_project_creator_credit(client):
+    body = client.get("/").text
+    assert 'class="site-footer"' in body
+    assert "Built by Louis Pauchet" in body
+
+
+def test_map_page_includes_project_creator_credit(client):
+    body = client.get("/map").text
+    assert 'class="site-footer"' in body
+    assert "Built by Louis Pauchet" in body
 def _set_full_oidc_config(monkeypatch) -> None:
     monkeypatch.setattr(settings_module.settings, "oidc_issuer", "https://example.com/issuer")
     monkeypatch.setattr(settings_module.settings, "oidc_client_id", "client-id")

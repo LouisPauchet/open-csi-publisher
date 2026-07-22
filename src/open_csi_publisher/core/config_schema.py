@@ -17,12 +17,16 @@ class VariableMember(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     raw_name: str
-    dimension_value: float | int | str
+    dimension_value: float | int | str | list[float | int | str]
 
 
 class VariableSpec(BaseModel):
     """One config `variables[]` entry: either a single raw column, or a group of raw
-    columns stacked along an `extra_dimension` (mutually exclusive)."""
+    columns stacked along one or more `extra_dimension` entries (mutually exclusive
+    with `raw_name`). A single dimension may be written as a bare object (its
+    members' `dimension_value` is then a scalar); more than one dimension is written
+    as a JSON array (each member's `dimension_value` is then a list of values, one
+    per declared dimension, in the same order)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -31,14 +35,23 @@ class VariableSpec(BaseModel):
     standard_name: str | None = None
     units: str | None = None
     dtype: Literal["numeric", "string"] = "numeric"
-    extra_dimension: ExtraDimension | None = None
+    extra_dimension: list[ExtraDimension] | None = None
     members: list[VariableMember] = []
+
+    @field_validator("extra_dimension", mode="before")
+    @classmethod
+    def _wrap_single_extra_dimension(cls, v: Any) -> Any:
+        if v is None or isinstance(v, list):
+            return v
+        return [v]
 
     @model_validator(mode="after")
     def _check_shape(self) -> "VariableSpec":
         if self.extra_dimension is not None:
             if self.raw_name is not None:
                 raise ValueError("a variable cannot set both raw_name and extra_dimension")
+            if not self.extra_dimension:
+                raise ValueError("extra_dimension, if given, must declare at least one dimension")
             if not self.members:
                 raise ValueError("extra_dimension variables require at least one member")
             if self.standard_name is None:
@@ -46,6 +59,20 @@ class VariableSpec(BaseModel):
                     "extra_dimension variables require standard_name (there is no "
                     "single raw_name to fall back on as the canonical identity)"
                 )
+            n_dims = len(self.extra_dimension)
+            for i, member in enumerate(self.members):
+                value = member.dimension_value
+                is_list = isinstance(value, list)
+                if n_dims == 1 and is_list:
+                    raise ValueError(
+                        f"members[{i}].dimension_value must be a scalar: extra_dimension "
+                        "declares exactly one dimension"
+                    )
+                if n_dims > 1 and (not is_list or len(value) != n_dims):
+                    raise ValueError(
+                        f"members[{i}].dimension_value must be a list of {n_dims} values "
+                        "(one per declared extra_dimension, in order)"
+                    )
         elif self.raw_name is None:
             raise ValueError("a variable must set either raw_name or extra_dimension+members")
         return self
@@ -97,13 +124,18 @@ class Deployment(BaseModel):
 
 
 class LoggerNetSourceConfig(BaseModel):
-    """`file_pattern` matches the live file ONLY and must end with the literal
-    `.dat` (may glob earlier segments, e.g. `*_Min.dat`) — the provider derives the
-    archived-file patterns from it (`_Historical.dat` inserted before the trailing
-    `.dat`, plus a `.dat.backup*` variant), rather than requiring one glob to catch
-    all three naming conventions at once. That single-glob approach doesn't work
-    when one table name is a prefix of another (e.g. `Min` vs `Min10` vs `Min60`):
-    a pattern like `*_Min*` would also match `*_Min10.dat`.
+    """`file_pattern` matches the live file ONLY (may glob earlier segments, e.g.
+    `*_Min.dat`) — the provider derives the archived-file patterns from it
+    (`historical_suffix` inserted before the trailing extension, plus a
+    `.backup*` variant appended), rather than requiring one glob to catch all
+    three naming conventions at once. That single-glob approach doesn't work
+    when one table name is a prefix of another (e.g. `Min` vs `Min10` vs
+    `Min60`): a pattern like `*_Min*` would also match `*_Min10.dat`.
+
+    The live file's extension does not have to be `.dat` — LoggerNet installs
+    commonly use `.dat`, but any extension (or none) is accepted here, as long
+    as the matched file's content actually has a TOA5 header (validated at
+    parse time, not by this schema, since that requires reading the file).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -113,12 +145,6 @@ class LoggerNetSourceConfig(BaseModel):
     table_name: str | None = None
     historical_suffix: str = "_Historical"
     record_column: str = "RECORD"
-
-    @model_validator(mode="after")
-    def _check_file_pattern(self) -> "LoggerNetSourceConfig":
-        if not self.file_pattern.endswith(".dat"):
-            raise ValueError("file_pattern must end with '.dat' (the live file's extension)")
-        return self
 
 
 class GenericCsvSourceConfig(BaseModel):

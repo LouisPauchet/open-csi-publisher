@@ -1,18 +1,26 @@
 from __future__ import annotations
 
 import csv
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import xarray as xr
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 _NA_VALUES = ["NAN"]
+_MARKER = "TOA5"
+_INFO_ROW_FIELD_COUNT = 8
+
+
+class Toa5FormatError(ValueError):
+    """Raised when a file's header doesn't have the shape of a TOA5 file — either
+    the info row doesn't unpack into the expected 8 fields, or its first field
+    isn't the literal `TOA5` marker. Lets callers (the provider's file matching,
+    the CLI's config validator) distinguish "this file isn't TOA5 at all" from
+    other parse failures, regardless of the file's extension."""
 
 
 @dataclass(frozen=True)
@@ -46,13 +54,22 @@ class ParsedToa5File:
 def parse_toa5_header(path: Path) -> Toa5Header:
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
-        info_row = next(reader)
-        column_names = next(reader)
-        units = next(reader)
-        agg_types = next(reader)
+        try:
+            info_row = next(reader)
+            column_names = next(reader)
+            units = next(reader)
+            agg_types = next(reader)
+        except StopIteration:
+            raise Toa5FormatError(f"{path}: fewer than 4 header rows") from None
+
+    if len(info_row) != _INFO_ROW_FIELD_COUNT:
+        raise Toa5FormatError(
+            f"{path}: expected {_INFO_ROW_FIELD_COUNT} fields in the TOA5 info row, "
+            f"found {len(info_row)}"
+        )
 
     (
-        _marker,
+        marker,
         station_name,
         logger_model,
         serial_no,
@@ -61,6 +78,9 @@ def parse_toa5_header(path: Path) -> Toa5Header:
         program_sig,
         table_name,
     ) = info_row
+
+    if marker != _MARKER:
+        raise Toa5FormatError(f"{path}: expected {_MARKER!r} marker, found {marker!r}")
 
     return Toa5Header(
         station_name=station_name,
@@ -136,7 +156,7 @@ def parse_toa5_file(
             parsed_time = pd.to_datetime(df[timestamp_column], format=_TIMESTAMP_FORMAT)
         except ValueError:
             logger.warning(
-                "timestamps in %s did not match %s, falling back to flexible parsing",
+                "timestamps in {} did not match {}, falling back to flexible parsing",
                 path,
                 _TIMESTAMP_FORMAT,
             )

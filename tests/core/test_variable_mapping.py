@@ -168,3 +168,83 @@ def test_extra_dimension_entirely_absent_is_dropped_not_errored():
     result = apply_variable_spec(raw, [spec])
 
     assert "air_temperature" not in result.data_vars
+
+
+def test_extra_dimension_stacks_two_dimensions_into_a_2d_variable():
+    raw = _ds(
+        pyr_2m_ch1=[1.0, 2.0, 3.0, 4.0],
+        pyr_2m_ch2=[5.0, 6.0, 7.0, 8.0],
+        pyr_10m_ch1=[9.0, 10.0, 11.0, 12.0],
+        pyr_10m_ch2=[13.0, 14.0, 15.0, 16.0],
+    )
+    spec = VariableSpec(
+        extra_dimension=[
+            ExtraDimension(name="height", units="m"),
+            ExtraDimension(name="channel", units="1"),
+        ],
+        members=[
+            VariableMember(raw_name="pyr_2m_ch1", dimension_value=[2, 1]),
+            VariableMember(raw_name="pyr_2m_ch2", dimension_value=[2, 2]),
+            VariableMember(raw_name="pyr_10m_ch1", dimension_value=[10, 1]),
+            VariableMember(raw_name="pyr_10m_ch2", dimension_value=[10, 2]),
+        ],
+        standard_name="surface_downwelling_shortwave_flux_in_air",
+        units="W m-2",
+    )
+
+    result = apply_variable_spec(raw, [spec])
+
+    var = result["surface_downwelling_shortwave_flux_in_air"]
+    assert set(var.dims) == {"time", "height", "channel"}
+    assert var.sel(height=2, channel=1).values.tolist() == [1.0, 2.0, 3.0, 4.0]
+    assert var.sel(height=10, channel=2).values.tolist() == [13.0, 14.0, 15.0, 16.0]
+
+
+def test_extra_dimension_missing_combination_is_nan():
+    # only 3 of the 4 height x channel combinations are declared/present at all
+    raw = _ds(
+        pyr_2m_ch1=[1.0, 2.0, 3.0, 4.0],
+        pyr_2m_ch2=[5.0, 6.0, 7.0, 8.0],
+        pyr_10m_ch1=[9.0, 10.0, 11.0, 12.0],
+    )
+    spec = VariableSpec(
+        extra_dimension=[
+            ExtraDimension(name="height", units="m"),
+            ExtraDimension(name="channel", units="1"),
+        ],
+        members=[
+            VariableMember(raw_name="pyr_2m_ch1", dimension_value=[2, 1]),
+            VariableMember(raw_name="pyr_2m_ch2", dimension_value=[2, 2]),
+            VariableMember(raw_name="pyr_10m_ch1", dimension_value=[10, 1]),
+        ],
+        standard_name="surface_downwelling_shortwave_flux_in_air",
+    )
+
+    result = apply_variable_spec(raw, [spec])
+
+    var = result["surface_downwelling_shortwave_flux_in_air"]
+    assert bool(np.isnan(var.sel(height=10, channel=2).values).all())
+    assert var.sel(height=2, channel=1).values.tolist() == [1.0, 2.0, 3.0, 4.0]
+
+
+def test_extra_dimension_preserves_declared_order_not_sorted():
+    raw = _ds(
+        AirTC_30m_Avg=[1.0, 2.0, 3.0, 4.0],
+        AirTC_2m_Avg=[5.0, 6.0, 7.0, 8.0],
+        AirTC_10m_Avg=[9.0, 10.0, 11.0, 12.0],
+    )
+    spec = VariableSpec(
+        extra_dimension=ExtraDimension(name="height", units="m"),
+        members=[
+            # deliberately declared out of ascending order
+            VariableMember(raw_name="AirTC_30m_Avg", dimension_value=30),
+            VariableMember(raw_name="AirTC_2m_Avg", dimension_value=2),
+            VariableMember(raw_name="AirTC_10m_Avg", dimension_value=10),
+        ],
+        standard_name="air_temperature",
+        units="degC",
+    )
+
+    result = apply_variable_spec(raw, [spec])
+
+    assert list(result["height"].values) == [30, 2, 10]

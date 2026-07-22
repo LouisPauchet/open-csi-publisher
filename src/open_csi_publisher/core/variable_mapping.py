@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from open_csi_publisher.core.config_schema import VariableSpec
@@ -48,12 +49,31 @@ def _coalesce_aliases(raw: xr.Dataset, spec: VariableSpec) -> xr.DataArray | Non
 
 
 def _stack_extra_dimension(raw: xr.Dataset, spec: VariableSpec) -> xr.DataArray | None:
+    """Stack member columns along one or more `extra_dimension` coordinates.
+
+    Uses a `pd.MultiIndex` (one level per declared dimension) plus
+    `xr.DataArray.unstack` rather than a plain `xr.concat`, so N declared
+    dimensions produce a genuine N-D array: a height x channel spec, for
+    example, ends up with two independent dims, not one flattened one.
+    `unstack` also fills in any combination no member declared at all as
+    NaN automatically (implicit outer join across the dimensions), and its
+    per-dimension coordinate values naturally come out as object dtype when
+    any `dimension_value` is a string (e.g. named statistics like "average"/
+    "maximum" rather than a numeric height/channel) — required because
+    opendap-protocol's generic array encoder writes a fixed-width numpy
+    string array's raw bytes straight onto the wire with no per-element
+    DAP2 length prefix, producing a DATADDS response DAP clients reject as
+    malformed ("NetCDF: Malformed or inaccessible DAP2 DATADDS or DAP4 DAP
+    response"). `unstack` sorts each dimension's coordinate ascending,
+    which does not match declaration order in general, so the result is
+    reindexed back to first-declared order per dimension afterward.
+    """
     assert spec.extra_dimension is not None
     if not any(member.raw_name in raw.data_vars for member in spec.members):
         return None
 
     member_arrays = []
-    dim_values = []
+    dim_tuples: list[tuple] = []
     for member in spec.members:
         if member.raw_name in raw.data_vars:
             member_arrays.append(raw[member.raw_name])
@@ -61,28 +81,27 @@ def _stack_extra_dimension(raw: xr.Dataset, spec: VariableSpec) -> xr.DataArray 
             member_arrays.append(
                 xr.DataArray(np.full(raw.sizes["time"], np.nan), dims="time")
             )
-        dim_values.append(member.dimension_value)
+        value = member.dimension_value
+        dim_tuples.append(tuple(value) if isinstance(value, list) else (value,))
 
-    dim_name = spec.extra_dimension.name
-    stacked = xr.concat(member_arrays, dim=dim_name)
-    # object dtype, not numpy's auto-inferred fixed-width "<U*", when any
-    # dimension_value is a string (e.g. named statistics like "average"/
-    # "maximum" rather than a numeric height/channel): opendap-protocol's
-    # generic array encoder writes a fixed-width numpy string array's raw
-    # bytes straight onto the wire with no per-element DAP2 length prefix,
-    # producing a DATADDS response DAP clients reject as malformed ("NetCDF:
-    # Malformed or inaccessible DAP2 DATADDS or DAP4 DAP response"). Values
-    # kept as genuine Python str objects (object dtype) go through a
-    # different, correct encoding path — the same one already used for
-    # plain string data variables like MetSENS_Status.
-    if any(isinstance(value, str) for value in dim_values):
-        dim_values = np.array(dim_values, dtype=object)
-    stacked = stacked.assign_coords({dim_name: dim_values})
+    dim_names = [d.name for d in spec.extra_dimension]
+    stacked = xr.concat(member_arrays, dim="_member")
+    multi_index = pd.MultiIndex.from_tuples(dim_tuples, names=dim_names)
+    stacked = stacked.assign_coords(xr.Coordinates.from_pandas_multiindex(multi_index, "_member"))
+    stacked = stacked.unstack("_member")
+
+    declaration_order = {
+        name: list(dict.fromkeys(values))
+        for name, values in zip(dim_names, zip(*dim_tuples))
+    }
+    stacked = stacked.reindex(declaration_order)
+
     stacked = stacked.rename(spec.canonical_name)
     stacked.attrs = {}
     if spec.standard_name:
         stacked.attrs["standard_name"] = spec.standard_name
     if spec.units:
         stacked.attrs["units"] = spec.units
-    stacked[dim_name].attrs["units"] = spec.extra_dimension.units
+    for dim in spec.extra_dimension:
+        stacked[dim.name].attrs["units"] = dim.units
     return stacked

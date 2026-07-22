@@ -171,6 +171,18 @@ def test_build_dataset_is_idempotent_across_repeated_calls(db_session, config_pr
     assert list(first["air_temperature"].values) == list(second["air_temperature"].values)
 
 
+@requires_mount
+def test_build_dataset_logs_start_and_end(db_session, config_provider, data_provider, caplog):
+    build_dataset(
+        "kapp_thordsen_10minute",
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=data_provider,
+    )
+    assert "building dataset kapp_thordsen_10minute" in caplog.text
+    assert "built dataset kapp_thordsen_10minute" in caplog.text
+
+
 def test_build_dataset_unknown_id_raises(db_session, config_provider, data_provider):
     with pytest.raises(DatasetConfigNotFoundError):
         build_dataset(

@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import xarray as xr
+from loguru import logger
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.core.config_schema import DatasetConfig, VariableSpec
@@ -37,6 +38,9 @@ def build_dataset(
     """
     start = _naive_utc(start)
     end = _naive_utc(end)
+    logger.info(
+        "building dataset {} (start={}, end={}, variables={})", dataset_id, start, end, variables
+    )
 
     config = get_versioned_config(dataset_id, session=session, config_provider=config_provider)
 
@@ -56,6 +60,12 @@ def build_dataset(
     result.attrs.update(_build_global_attrs(config))
     result.attrs.update(_build_provenance_attrs(session, dataset_id, config))
     result.attrs.update(_build_coverage_attrs(result))
+    logger.info(
+        "built dataset {}: {} files selected, {} time steps",
+        dataset_id,
+        len(selected),
+        result.sizes.get("time", 0),
+    )
     return result
 
 

@@ -23,6 +23,124 @@ def _kapp_thordsen_config(**overrides) -> LoggerNetSourceConfig:
     return LoggerNetSourceConfig(file_pattern=KAPP_THORDSEN_PATTERN, **overrides)
 
 
+# --- _historical_pattern / _backup_pattern --------------------------------------
+
+
+def test_historical_pattern_dot_dat_regression():
+    assert (
+        provider_module._historical_pattern("Station_Table.dat", "_Historical")
+        == "Station_Table_Historical.dat"
+    )
+
+
+def test_historical_pattern_generalizes_beyond_dot_dat():
+    assert (
+        provider_module._historical_pattern("Station_Table.csv", "_Historical")
+        == "Station_Table_Historical.csv"
+    )
+
+
+def test_historical_pattern_handles_pattern_without_an_extension():
+    assert (
+        provider_module._historical_pattern("Station_Table", "_Historical")
+        == "Station_Table_Historical"
+    )
+
+
+def test_backup_pattern_is_extension_agnostic():
+    assert provider_module._backup_pattern("Station_Table.csv") == "Station_Table.csv.backup*"
+
+
+# --- matched_files skips non-TOA5 files ------------------------------------------
+
+
+def test_matched_files_skips_files_without_a_toa5_header(tmp_path):
+    valid = tmp_path / "Station_Table.csv"
+    valid.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    not_toa5 = tmp_path / "Station_Table_notes.csv"
+    not_toa5.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    matched = provider.matched_files(config)
+
+    assert matched == [valid]
+
+
+def test_matched_files_logs_a_warning_via_loguru_for_each_skipped_file(tmp_path, caplog):
+    (tmp_path / "Station_Table.csv").write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    not_toa5 = tmp_path / "Station_Table_notes.csv"
+    not_toa5.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    provider.matched_files(config)
+
+    assert "skipping" in caplog.text
+    assert str(not_toa5) in caplog.text
+
+
+# --- get_file_index logging summary ----------------------------------------------
+
+
+def test_get_file_index_logs_a_summary_of_matched_parsed_and_reused_files(tmp_path, caplog):
+    (tmp_path / "Station_Table.dat").write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","AirT_C"\n'
+        '"TS","RN","Deg C"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+
+    caplog.clear()
+    first = provider.get_file_index(config)
+    assert "1 files matched" in caplog.text
+    assert "1 newly parsed" in caplog.text
+
+    caplog.clear()
+    provider.get_file_index(config, previous=first)
+    assert "0 newly parsed" in caplog.text
+    assert "1 reused from previous index" in caplog.text
+
+
+def test_get_file_index_ignores_non_toa5_files_matching_the_glob(tmp_path):
+    valid = tmp_path / "Station_Table.csv"
+    valid.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n'
+        '"2026-01-01 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "Station_Table_notes.csv").write_text(
+        "just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8"
+    )
+
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
+    records = provider.get_file_index(config)
+
+    assert [r.file_name for r in records] == [valid.name]
+
+
 @requires_mount
 def test_get_file_index_initial_discovery(mount_root):
     provider = LoggerNetDataProvider(mount_root)

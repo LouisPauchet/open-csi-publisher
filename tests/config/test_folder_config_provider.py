@@ -53,6 +53,17 @@ def test_load_config_missing_dataset_raises(tmp_path):
         provider.load_config("does_not_exist")
 
 
+def test_load_config_logs_the_file_path_on_malformed_json(tmp_path, caplog):
+    config_path = tmp_path / "station_a.json"
+    config_path.write_text("{not valid json", encoding="utf-8")
+    provider = FolderConfigProvider(tmp_path)
+
+    with pytest.raises(json.JSONDecodeError):
+        provider.load_config("station_a")
+
+    assert str(config_path) in caplog.text
+
+
 def test_config_hash_changes_when_content_changes(tmp_path):
     _write(tmp_path, "station_a", MINIMAL_CONFIG)
     provider = FolderConfigProvider(tmp_path)
