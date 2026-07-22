@@ -5,6 +5,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 import xarray as xr
+from loguru import logger
 
 from open_csi_publisher.core.config_schema import VariableSpec
 
@@ -16,12 +17,51 @@ def apply_variable_spec(raw: xr.Dataset, variables: Sequence[VariableSpec]) -> x
     e.g. querying a time window predating a sensor's installation.
     """
     data_vars: dict[str, xr.DataArray] = {}
+    data_quality_warnings: list[str] = []
     for spec in variables:
         mapped = _stack_extra_dimension(raw, spec) if spec.extra_dimension else _coalesce_aliases(raw, spec)
         if mapped is not None:
+            mapped, warning = _coerce_numeric(mapped, spec)
+            if warning is not None:
+                data_quality_warnings.append(warning)
             data_vars[spec.canonical_name] = mapped
 
-    return xr.Dataset(data_vars, coords={"time": raw["time"]})
+    ds = xr.Dataset(data_vars, coords={"time": raw["time"]})
+    if data_quality_warnings:
+        ds.attrs["data_quality_warnings"] = "; ".join(data_quality_warnings)
+    return ds
+
+
+def _coerce_numeric(array: xr.DataArray, spec: VariableSpec) -> tuple[xr.DataArray, str | None]:
+    """A `dtype: "numeric"` variable's raw values are, per the config schema,
+    supposed to already be numbers — but a source can report the same
+    quantity using a mix of JSON types across points (observed with
+    ThingsBoard's timeseries API, which returns each point in whatever type
+    it was originally stored as). Left alone, that mix becomes an object-dtype
+    array that build_dataset() happily produces but to_netcdf()/OPeNDAP fail
+    to serialize much later, far from the actual cause. Coercing here recovers
+    every numeric-looking string losslessly and silently (not a data-quality
+    issue, just a source type quirk); anything genuinely unparseable becomes
+    NaN (this pipeline's standard "missing data, not an error" convention)
+    and is reported back to the caller so it ends up in the built dataset's
+    `data_quality_warnings` global attribute, not just the application log —
+    a data consumer reading the file has no access to the server's logs.
+    """
+    if spec.dtype != "numeric" or array.dtype != object:
+        return array, None
+
+    coerced = pd.to_numeric(array.values, errors="coerce")
+    newly_nan = pd.isna(coerced) & ~pd.isna(array.values)
+    warning = None
+    if newly_nan.any():
+        bad_values = list(np.unique(array.values[newly_nan]))
+        count = int(newly_nan.sum())
+        warning = (
+            f"{spec.canonical_name}: {count} value(s) could not be parsed as numeric "
+            f"and were set to NaN (examples: {bad_values})"
+        )
+        logger.warning(warning)
+    return array.copy(data=coerced.astype("float64")), warning
 
 
 def _coalesce_aliases(raw: xr.Dataset, spec: VariableSpec) -> xr.DataArray | None:
