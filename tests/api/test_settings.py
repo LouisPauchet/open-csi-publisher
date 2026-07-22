@@ -52,3 +52,38 @@ def test_publish_api_keys_drops_empty_entries(monkeypatch):
 def test_publish_cache_dir_default(monkeypatch):
     monkeypatch.delenv("PUBLISH_CACHE_DIR", raising=False)
     assert Settings().publish_cache_dir == "local/publish_cache"
+
+
+def _clear_oidc_env(monkeypatch):
+    for var in ("OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "SESSION_SECRET_KEY"):
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_oidc_configured_false_when_issuer_unset(monkeypatch):
+    _clear_oidc_env(monkeypatch)
+    assert Settings().oidc_configured is False
+
+
+def test_oidc_configured_false_when_issuer_set_but_client_id_missing(monkeypatch):
+    _clear_oidc_env(monkeypatch)
+    monkeypatch.setenv("OIDC_ISSUER", "https://login.microsoftonline.com/tenant-id/v2.0")
+    monkeypatch.setenv("OIDC_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret")
+    assert Settings().oidc_configured is False
+
+
+def test_oidc_configured_false_when_session_secret_key_missing(monkeypatch):
+    _clear_oidc_env(monkeypatch)
+    monkeypatch.setenv("OIDC_ISSUER", "https://login.microsoftonline.com/tenant-id/v2.0")
+    monkeypatch.setenv("OIDC_CLIENT_ID", "client-id")
+    monkeypatch.setenv("OIDC_CLIENT_SECRET", "secret")
+    assert Settings().oidc_configured is False
+
+
+def test_oidc_configured_true_when_all_four_fields_set(monkeypatch):
+    _clear_oidc_env(monkeypatch)
+    monkeypatch.setenv("OIDC_ISSUER", "https://login.microsoftonline.com/tenant-id/v2.0")
+    monkeypatch.setenv("OIDC_CLIENT_ID", "client-id")
+    monkeypatch.setenv("OIDC_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret")
+    assert Settings().oidc_configured is True

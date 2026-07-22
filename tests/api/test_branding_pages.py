@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from open_csi_publisher import settings as settings_module
-from open_csi_publisher.api.auth import get_current_user
+from open_csi_publisher.api.auth import User, get_current_user
 from open_csi_publisher.api.deps import get_dataset_locations, get_db_session
 from open_csi_publisher.api.routers.pages import router as pages_router
 
@@ -93,3 +93,35 @@ def test_map_page_includes_project_creator_credit(client):
     body = client.get("/map").text
     assert 'class="site-footer"' in body
     assert "Built by Louis Pauchet" in body
+def _set_full_oidc_config(monkeypatch) -> None:
+    monkeypatch.setattr(settings_module.settings, "oidc_issuer", "https://example.com/issuer")
+    monkeypatch.setattr(settings_module.settings, "oidc_client_id", "client-id")
+    monkeypatch.setattr(settings_module.settings, "oidc_client_secret", "client-secret")
+    monkeypatch.setattr(settings_module.settings, "session_secret_key", "session-secret")
+
+
+@pytest.mark.parametrize("path", ["/", "/map"])
+def test_header_shows_login_link_when_oidc_configured_and_anonymous(client, monkeypatch, path):
+    _set_full_oidc_config(monkeypatch)
+    body = client.get(path).text
+    assert 'href="/auth/login"' in body
+    assert 'href="/auth/logout"' not in body
+
+
+@pytest.mark.parametrize("path", ["/", "/map"])
+def test_header_shows_username_and_logout_link_when_authenticated(app, client, monkeypatch, path):
+    _set_full_oidc_config(monkeypatch)
+    app.dependency_overrides[get_current_user] = lambda: User(subject="u1", email="a@b.com")
+
+    body = client.get(path).text
+
+    assert "a@b.com" in body
+    assert 'href="/auth/logout"' in body
+    assert 'href="/auth/login"' not in body
+
+
+@pytest.mark.parametrize("path", ["/", "/map"])
+def test_header_shows_no_auth_ui_when_oidc_not_configured(client, path):
+    body = client.get(path).text
+    assert 'href="/auth/login"' not in body
+    assert 'href="/auth/logout"' not in body
