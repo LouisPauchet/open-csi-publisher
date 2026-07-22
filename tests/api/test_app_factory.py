@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from starlette.middleware.sessions import SessionMiddleware
 
 from open_csi_publisher import settings as settings_module
 from open_csi_publisher.api.app import create_app
@@ -51,6 +52,41 @@ def test_create_app_wires_pages_and_api_routers(tmp_path, monkeypatch):
 
     map_page = client.get("/map")
     assert map_page.status_code == 200
+
+
+def _set_full_oidc_config(monkeypatch) -> None:
+    monkeypatch.setattr(settings_module.settings, "oidc_issuer", "https://example.com/issuer")
+    monkeypatch.setattr(settings_module.settings, "oidc_client_id", "client-id")
+    monkeypatch.setattr(settings_module.settings, "oidc_client_secret", "client-secret")
+    monkeypatch.setattr(settings_module.settings, "session_secret_key", "session-secret")
+
+
+def test_create_app_does_not_register_session_middleware_by_default(tmp_path, monkeypatch):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    app = create_app()
+    assert not any(m.cls is SessionMiddleware for m in app.user_middleware)
+
+
+def test_create_app_registers_session_middleware_when_oidc_fully_configured(tmp_path, monkeypatch):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    _set_full_oidc_config(monkeypatch)
+    app = create_app()
+    assert any(m.cls is SessionMiddleware for m in app.user_middleware)
+
+
+def test_create_app_skips_session_middleware_and_logs_when_oidc_partially_configured(
+    tmp_path, monkeypatch, caplog
+):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(settings_module.settings, "oidc_issuer", "https://example.com/issuer")
+    monkeypatch.setattr(settings_module.settings, "oidc_client_id", None)
+    monkeypatch.setattr(settings_module.settings, "oidc_client_secret", None)
+    monkeypatch.setattr(settings_module.settings, "session_secret_key", None)
+
+    app = create_app()
+
+    assert not any(m.cls is SessionMiddleware for m in app.user_middleware)
+    assert "oidc" in caplog.text.lower()
 
 
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):

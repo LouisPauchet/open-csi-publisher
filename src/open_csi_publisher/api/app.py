@@ -4,7 +4,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from loguru import logger
 from sqlalchemy.orm import sessionmaker
+from starlette.middleware.sessions import SessionMiddleware
 
 from open_csi_publisher.api.deps import get_dataset_locations
 from open_csi_publisher.api.opendap import build_opendap_app
@@ -14,6 +16,8 @@ from open_csi_publisher.state.db import get_engine, init_db
 from open_csi_publisher.api.deps import get_branding
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+_OIDC_FIELDS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret", "session_secret_key")
 
 
 def create_app() -> FastAPI:
@@ -35,4 +39,21 @@ def create_app() -> FastAPI:
     )
     app.mount("/opendap", opendap_app)
 
+    _configure_oidc_session(app)
+
     return app
+
+
+def _configure_oidc_session(app: FastAPI) -> None:
+    """Register SessionMiddleware only when OIDC is fully configured. A partially
+    configured setup (e.g. `oidc_issuer` set but `session_secret_key` missing) does
+    not crash startup — it logs which field(s) are missing and leaves login
+    disabled, identical to OIDC being entirely unconfigured (settings.oidc_issuer
+    docstring / Settings.oidc_configured)."""
+    if settings.oidc_configured:
+        app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
+    elif settings.oidc_issuer is not None:
+        missing = [f for f in _OIDC_FIELDS if not getattr(settings, f)]
+        logger.error(
+            "OIDC is only partially configured (missing: {}) — login is disabled", missing
+        )

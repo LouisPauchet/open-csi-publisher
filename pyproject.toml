@@ -30,6 +30,8 @@ dependencies = [
     "setuptools<81",
     "click>=8.1",
     "httpx>=0.27",
+    "loguru>=0.7.3",
+    "itsdangerous>=2.2.0",
 ]
 
 [project.scripts]
