@@ -212,11 +212,25 @@ def test_extra_dimension_single_dimension_still_rejects_a_list_valued_dimension_
         DatasetConfig.model_validate(doc)
 
 
-def test_file_pattern_not_ending_in_dat_rejected():
+def test_file_pattern_with_non_dat_extension_accepted():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["source_config"]["file_pattern"] = "station/Table_10minute.csv"
+    config = DatasetConfig.model_validate(doc)
+    assert config.source_config.file_pattern == "station/Table_10minute.csv"
+
+
+def test_file_pattern_without_any_extension_accepted():
+    doc = copy.deepcopy(FIXED_CONFIG)
+    doc["source_config"]["file_pattern"] = "station/Table_10minute"
+    config = DatasetConfig.model_validate(doc)
+    assert config.source_config.file_pattern == "station/Table_10minute"
+
+
+def test_file_pattern_with_wildcard_and_dat_extension_still_accepted():
     doc = copy.deepcopy(FIXED_CONFIG)
     doc["source_config"]["file_pattern"] = "station/Table_10minute.dat*"
-    with pytest.raises(ValidationError):
-        DatasetConfig.model_validate(doc)
+    config = DatasetConfig.model_validate(doc)
+    assert config.source_config.file_pattern == "station/Table_10minute.dat*"
 
 
 def test_fixed_deployment_missing_lat_lon_rejected():
