@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -114,7 +115,8 @@ class LoggerNetDataProvider(DataProvider):
 
 
 def _historical_pattern(file_pattern: str, historical_suffix: str) -> str:
-    return file_pattern[: -len(".dat")] + historical_suffix + ".dat"
+    stem, ext = os.path.splitext(file_pattern)
+    return stem + historical_suffix + ext
 
 
 def _backup_pattern(file_pattern: str) -> str:

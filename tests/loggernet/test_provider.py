@@ -23,6 +23,34 @@ def _kapp_thordsen_config(**overrides) -> LoggerNetSourceConfig:
     return LoggerNetSourceConfig(file_pattern=KAPP_THORDSEN_PATTERN, **overrides)
 
 
+# --- _historical_pattern / _backup_pattern --------------------------------------
+
+
+def test_historical_pattern_dot_dat_regression():
+    assert (
+        provider_module._historical_pattern("Station_Table.dat", "_Historical")
+        == "Station_Table_Historical.dat"
+    )
+
+
+def test_historical_pattern_generalizes_beyond_dot_dat():
+    assert (
+        provider_module._historical_pattern("Station_Table.csv", "_Historical")
+        == "Station_Table_Historical.csv"
+    )
+
+
+def test_historical_pattern_handles_pattern_without_an_extension():
+    assert (
+        provider_module._historical_pattern("Station_Table", "_Historical")
+        == "Station_Table_Historical"
+    )
+
+
+def test_backup_pattern_is_extension_agnostic():
+    assert provider_module._backup_pattern("Station_Table.csv") == "Station_Table.csv.backup*"
+
+
 @requires_mount
 def test_get_file_index_initial_discovery(mount_root):
     provider = LoggerNetDataProvider(mount_root)
