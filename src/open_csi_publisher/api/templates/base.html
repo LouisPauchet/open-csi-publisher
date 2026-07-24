@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,24 +8,95 @@
   <link rel="stylesheet" href="/static/css/site.css">
   <style>
     :root {
-      --brand-primary: {{ branding.color_primary }};
-      --brand-secondary: {{ branding.color_secondary }};
-      --brand-background: {{ branding.color_background }};
-      --brand-header-background: {{ branding.color_header_background }};
-      --brand-link: {{ branding.color_link }};
-      --brand-link-hover: {{ branding.color_link_hover }};
-      --brand-border: {{ branding.color_border }};
-      --brand-font: {{ branding.font_family | safe }};
-      --brand-heading-font: {{ branding.heading_font_family | safe }};
-      --brand-radius: {{ branding.radius }};
+      --brand-primary: {
+          {
+          branding.color_primary
+        }
+      }
+
+      ;
+
+      --brand-secondary: {
+          {
+          branding.color_secondary
+        }
+      }
+
+      ;
+
+      --brand-background: {
+          {
+          branding.color_background
+        }
+      }
+
+      ;
+
+      --brand-header-background: {
+          {
+          branding.color_header_background
+        }
+      }
+
+      ;
+
+      --brand-link: {
+          {
+          branding.color_link
+        }
+      }
+
+      ;
+
+      --brand-link-hover: {
+          {
+          branding.color_link_hover
+        }
+      }
+
+      ;
+
+      --brand-border: {
+          {
+          branding.color_border
+        }
+      }
+
+      ;
+
+      --brand-font: {
+          {
+          branding.font_family | safe
+        }
+      }
+
+      ;
+
+      --brand-heading-font: {
+          {
+          branding.heading_font_family | safe
+        }
+      }
+
+      ;
+
+      --brand-radius: {
+          {
+          branding.radius
+        }
+      }
+
+      ;
     }
   </style>
 </head>
+
 <body>
   <header class="site-header">
     <div class="site-header-inner">
       <a class="site-title" href="/">
-        {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
+        {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{%
+        endif %}
         <span>{{ branding.site_name }}</span>
       </a>
       {% if oidc_enabled %}
@@ -43,7 +115,10 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">
-    <div class="site-footer-inner">Built by Louis Pauchet</div>
+    <div class="site-footer-inner">
+      Made with 🥶 by Louis Pauchet at <a href="https://www.unis.no/">UNIS</a>, Svalbard. Open CSI Publisher · EUPL-1.2
+    </div>
   </footer>
 </body>
+
 </html>
