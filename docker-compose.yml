@@ -26,6 +26,13 @@ services:
       # --- publish endpoint (static API-key auth, separate from OIDC) ---
       PUBLISH_API_KEYS_RAW: ""
       PUBLISH_CACHE_DIR: local/publish_cache
+
+      # --- parsed-file cache (state/cache.py) ---
+      # Unset = caching disabled, every request reparses from disk (today's
+      # behavior). To enable, uncomment the `redis` service below and point
+      # this at it:
+      #   REDIS_URL: redis://redis:6379/0
+      REDIS_URL: ""
     volumes:
       # Real source-station data (LoggerNet .dat/.dat.backup files) — never
       # baked into the image; read-only, the app only ever reads it.
@@ -41,3 +48,10 @@ services:
       # app's only writable, persisted state.
       - ./local:/app/local
     restart: unless-stopped
+
+  # Opt-in: uncomment both this service and REDIS_URL above to enable the
+  # parsed-file cache. No persistent volume needed — it's a cache, not state;
+  # losing it just means the next request reparses from disk.
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
