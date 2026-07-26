@@ -7,15 +7,9 @@ from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from open_csi_publisher.state.models import Base
-
 
 def get_engine(database_url: str) -> Engine:
     return create_engine(database_url, future=True)
-
-
-def init_db(engine: Engine) -> None:
-    Base.metadata.create_all(engine)
 
 
 def run_migrations(database_url: str, base_dir: str = ".") -> None:

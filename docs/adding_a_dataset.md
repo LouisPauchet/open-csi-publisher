@@ -52,10 +52,11 @@ site's `__config__/` folder instead — see `sources.yaml`).
    from open_csi_publisher.core.builder import build_dataset
    from open_csi_publisher.providers.config.folder import FolderConfigProvider
    from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
-   from open_csi_publisher.state.db import get_engine, init_db
+   from open_csi_publisher.state.db import get_engine
+   from open_csi_publisher.state.models import Base
 
    engine = get_engine('sqlite:///:memory:')
-   init_db(engine)
+   Base.metadata.create_all(engine)  # a throwaway in-memory DB needs no migration history
    with Session(engine) as session:
        ds = build_dataset(
            '<dataset_id>', session=session,
