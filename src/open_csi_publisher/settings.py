@@ -58,5 +58,13 @@ class Settings(BaseSettings):
     # an operational tuning knob, not a secret.
     thingsboard_discovery_interval_seconds: int = 3600
 
+    # How long a dataset's config-hash check (which for ThingsBoard-backed
+    # sources costs 2 HTTP calls) is trusted before being re-verified against
+    # the source on the next access (core/config_versioning.py). Within this
+    # window, get_versioned_config() serves the already-snapshotted content
+    # without contacting the source at all — station metadata is no longer
+    # rechecked on every single reload.
+    config_recheck_interval_seconds: float = 300
+
 
 settings = Settings()
