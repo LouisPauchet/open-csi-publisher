@@ -33,6 +33,7 @@ dependencies = [
     "loguru>=0.7.3",
     "itsdangerous>=2.2.0",
     "authlib>=1.7.2",
+    "alembic>=1.18.5",
 ]
 
 [project.scripts]
