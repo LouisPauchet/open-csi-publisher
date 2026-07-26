@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import pickle
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -14,15 +15,19 @@ from open_csi_publisher.core.models import FileRecord
 from open_csi_publisher.providers.base import DataProvider
 from open_csi_publisher.providers.data.loggernet.fileset import classify_files, reconcile_fileset
 from open_csi_publisher.providers.data.loggernet.toa5 import (
+    ParsedToa5File,
     Toa5FormatError,
     parse_toa5_file,
     parse_toa5_header,
 )
+from open_csi_publisher.settings import settings
+from open_csi_publisher.state.cache import NullParseCache, ParseCache
 
 
 class LoggerNetDataProvider(DataProvider):
-    def __init__(self, data_root: Path):
+    def __init__(self, data_root: Path, cache: ParseCache | NullParseCache | None = None):
         self._data_root = Path(data_root)
+        self._cache = cache if cache is not None else NullParseCache()
 
     def get_file_index(
         self, source_config: LoggerNetSourceConfig, previous: Sequence[FileRecord] = ()
@@ -135,12 +140,40 @@ class LoggerNetDataProvider(DataProvider):
         record: FileRecord,
         source_config: LoggerNetSourceConfig,
         variables: list[str] | None,
-    ):
-        return parse_toa5_file(
-            self._data_root / record.file_name,
-            timestamp_column=source_config.timestamp_column,
-            usecols=variables,
-        )
+    ) -> ParsedToa5File:
+        if not source_config.cache_enabled or not self._cache.enabled:
+            return parse_toa5_file(
+                self._data_root / record.file_name,
+                timestamp_column=source_config.timestamp_column,
+                usecols=variables,
+            )
+
+        # Keyed on (file_name, size): a closed archived file's size never
+        # changes, so its cache entry is effectively permanent (within its long
+        # TTL); a live file's size changes as new rows are appended, so a new
+        # entry naturally appears whenever it does.
+        cache_key = f"loggernet:{record.file_name}:{record.size}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            parsed = pickle.loads(cached)
+        else:
+            # Always parse the whole file here (no usecols pushdown) so a
+            # later request for a different variable subset of the same
+            # file/size is still a cache hit, rather than a fresh miss.
+            parsed = parse_toa5_file(
+                self._data_root / record.file_name, timestamp_column=source_config.timestamp_column
+            )
+            ttl = (
+                settings.redis_archived_cache_ttl_seconds
+                if record.status == "closed"
+                else settings.redis_cache_ttl_seconds
+            )
+            self._cache.set(cache_key, pickle.dumps(parsed), ttl=ttl)
+
+        if variables is not None:
+            keep = [v for v in variables if v in parsed.dataset.data_vars]
+            parsed = replace(parsed, dataset=parsed.dataset[keep])
+        return parsed
 
 
 def _historical_pattern(file_pattern: str, historical_suffix: str) -> str:
