@@ -160,6 +160,7 @@ class GenericCsvSourceConfig(BaseModel):
 
     file_path: str
     timestamp_column: str = "timestamp"
+    cache_enabled: bool = True
 
 
 class ThingsBoardSourceConfig(BaseModel):
