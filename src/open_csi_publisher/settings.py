@@ -66,5 +66,15 @@ class Settings(BaseSettings):
     # rechecked on every single reload.
     config_recheck_interval_seconds: float = 300
 
+    # Redis-backed cache of parsed LoggerNet/generic-CSV file content
+    # (providers/data/loggernet/provider.py, providers/data/generic_csv/provider.py)
+    # — unset (the default) disables caching entirely, same "None means off"
+    # convention as oidc_issuer. TOA5 parsing can be slow for large
+    # files, so an archived (closed, immutable) file is cached far longer
+    # than a still-being-appended-to live one.
+    redis_url: str | None = None
+    redis_cache_ttl_seconds: int = 300
+    redis_archived_cache_ttl_seconds: int = 2_592_000
+
 
 settings = Settings()
