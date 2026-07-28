@@ -61,6 +61,18 @@ def _auth_headers(key: str = API_KEY) -> dict[str, str]:
 # --- auth -------------------------------------------------------------------
 
 
+def test_openapi_schema_declares_bearer_auth_for_publish_endpoints(app):
+    # Swagger UI only renders an "Authorize" button / per-endpoint lock icon
+    # (i.e. somewhere to actually enter the API key from "Try it out") for a
+    # dependency FastAPI recognizes as a security scheme (fastapi.security.*).
+    # A plain `request: Request` header read, however correct at runtime,
+    # produces no such affordance in the generated OpenAPI schema.
+    schema = app.openapi()
+    assert schema["components"]["securitySchemes"]
+    datasets_op = schema["paths"]["/publish/datasets"]["get"]
+    assert datasets_op.get("security")
+
+
 @requires_mount
 def test_missing_api_key_401(client):
     assert client.get("/publish/datasets").status_code == 401

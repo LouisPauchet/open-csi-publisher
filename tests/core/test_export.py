@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import io
 
+import numpy as np
 import pandas as pd
 import xarray as xr
 
-from open_csi_publisher.core.export import render_csv_with_metadata_header
+from open_csi_publisher.core.export import render_csv_with_metadata_header, to_wide_dataframe
 
 
 def _ds(**attrs) -> xr.Dataset:
@@ -14,6 +15,24 @@ def _ds(**attrs) -> xr.Dataset:
         coords={"time": pd.date_range("2026-01-01", periods=3, freq="10min")},
     )
     ds.attrs.update(attrs)
+    return ds
+
+
+def _extra_dimension_ds() -> xr.Dataset:
+    time = pd.date_range("2026-01-01", periods=3, freq="10min")
+    air_temperature = xr.DataArray(
+        [[1.0, 10.0], [2.0, 20.0], [3.0, 30.0]],
+        dims=("time", "height"),
+        coords={"time": time, "height": [2, 10]},
+    )
+    air_temperature["height"].attrs["units"] = "m"
+    ds = xr.Dataset(
+        {
+            "air_temperature": air_temperature,
+            "wind_speed": ("time", [4.0, 5.0, 6.0]),
+        },
+        coords={"time": time},
+    )
     return ds
 
 
@@ -61,3 +80,71 @@ def test_csv_with_no_attrs_still_produces_valid_csv():
     text = render_csv_with_metadata_header(ds)
     df = pd.read_csv(io.StringIO(text), comment="#")
     assert len(df) == 3
+
+
+def test_csv_explodes_extra_dimension_into_columns_not_rows():
+    ds = _extra_dimension_ds()
+    text = render_csv_with_metadata_header(ds)
+    df = pd.read_csv(io.StringIO(text), comment="#")
+
+    assert len(df) == 3
+    assert "air_temperature_2m" in df.columns
+    assert "air_temperature_10m" in df.columns
+    assert "air_temperature" not in df.columns
+    assert "height" not in df.columns
+    assert list(df["air_temperature_2m"]) == [1.0, 2.0, 3.0]
+    assert list(df["air_temperature_10m"]) == [10.0, 20.0, 30.0]
+    assert list(df["wind_speed"]) == [4.0, 5.0, 6.0]
+
+
+def test_to_wide_dataframe_plain_variable_is_unchanged():
+    ds = _ds()
+    df = to_wide_dataframe(ds)
+    assert list(df.columns) == ["time", "air_temperature"]
+    assert list(df["air_temperature"]) == [1.0, 2.0, 3.0]
+
+
+def test_to_wide_dataframe_integral_float_dimension_value_has_no_trailing_zero():
+    time = pd.date_range("2026-01-01", periods=2, freq="10min")
+    da = xr.DataArray(
+        [[1.0, 2.0]],
+        dims=("time", "height"),
+        coords={"time": time[:1], "height": [2.0, 10.0]},
+    )
+    da["height"].attrs["units"] = "m"
+    ds = xr.Dataset({"air_temperature": da}, coords={"time": time[:1]})
+
+    df = to_wide_dataframe(ds)
+
+    assert "air_temperature_2m" in df.columns
+    assert "air_temperature_10m" in df.columns
+
+
+def test_to_wide_dataframe_string_dimension_value_has_no_units_suffix():
+    time = pd.date_range("2026-01-01", periods=2, freq="10min")
+    da = xr.DataArray(
+        np.array([["a"], ["b"]]),
+        dims=("time", "statistic"),
+        coords={"time": time, "statistic": ["average"]},
+    )
+    da["statistic"].attrs["units"] = "1"
+    ds = xr.Dataset({"wind_direction": da}, coords={"time": time})
+
+    df = to_wide_dataframe(ds)
+
+    assert "wind_direction_average" in df.columns
+
+
+def test_to_wide_dataframe_multiple_extra_dimensions_concatenate_segments():
+    time = pd.date_range("2026-01-01", periods=1, freq="10min")
+    da = xr.DataArray(
+        [[[1.0]]],
+        dims=("time", "height", "channel"),
+        coords={"time": time, "height": [2], "channel": ["ch1"]},
+    )
+    da["height"].attrs["units"] = "m"
+    ds = xr.Dataset({"air_temperature": da}, coords={"time": time})
+
+    df = to_wide_dataframe(ds)
+
+    assert "air_temperature_2m_ch1" in df.columns
