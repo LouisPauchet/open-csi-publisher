@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
+
 from open_csi_publisher.api.auth import User
 from open_csi_publisher.api.services import list_visible_datasets
+from open_csi_publisher.providers.config.folder import FolderConfigProvider
+from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
+from open_csi_publisher.sources import DatasetLocation
 
 ANONYMOUS = None
 LOGGED_IN = User(subject="test-user")
@@ -91,6 +96,63 @@ def test_dataset_summary_shape_for_fixed_dataset(db_session, locations):
     assert "air_temperature" in summary.standard_names
     assert summary.metadata["department"] == "Arctic Geophysics"
     assert summary.position == {"lat": 78.5, "lon": 15.0, "elevation": 5}
+
+
+_VALID_CONFIG = {
+    "id": "good_station",
+    "source_type": "loggernet",
+    "access": "public",
+    "source_config": {
+        "file_pattern": "GoodStation/GoodStation_Table_10minute.dat",
+        "table_name": "Table_10minute",
+    },
+    "variables": [
+        {"raw_name": "temperature_Avg", "standard_name": "air_temperature", "units": "degC"},
+    ],
+    "platform_type": "fixed",
+    "deployments": [
+        {"start": "2020-01-01T00:00:00Z", "end": None, "lat": 78.5, "lon": 15.0, "elevation": 5}
+    ],
+    "metadata": {"title": "Good Station"},
+    "output": {"file_naming": "{station}_{table}_{yyyy}-{mm}.nc", "publish": True},
+}
+
+
+def _broken_locations(tmp_path, mount_root, *, broken_content: str):
+    (tmp_path / "good_station.json").write_text(json.dumps(_VALID_CONFIG), encoding="utf-8")
+    (tmp_path / "broken_station.json").write_text(broken_content, encoding="utf-8")
+
+    provider = FolderConfigProvider(tmp_path)
+    data_provider = LoggerNetDataProvider(mount_root)
+    return [
+        DatasetLocation("test", ds_id, provider, data_provider)
+        for ds_id in provider.list_dataset_ids()
+    ]
+
+
+def test_dataset_with_invalid_schema_is_skipped_not_fatal(db_session, tmp_path, mount_root):
+    # duplicate raw_name across two variables[] entries fails DatasetConfig's
+    # collision check (core/config_schema.py) — see the daudmannsodden_10minute
+    # config that originally surfaced this.
+    invalid_schema = dict(_VALID_CONFIG)
+    invalid_schema["id"] = "broken_station"
+    invalid_schema["variables"] = [
+        {"raw_name": "temperature_Avg", "standard_name": "air_temperature", "units": "degC"},
+        {"raw_name": "temperature_Avg", "standard_name": "air_temperature", "units": "degC"},
+    ]
+    locations = _broken_locations(tmp_path, mount_root, broken_content=json.dumps(invalid_schema))
+
+    result = list_visible_datasets(db_session, ANONYMOUS, locations=locations)
+
+    assert _ids(result) == {"good_station"}
+
+
+def test_dataset_with_malformed_json_is_skipped_not_fatal(db_session, tmp_path, mount_root):
+    locations = _broken_locations(tmp_path, mount_root, broken_content="{not valid json")
+
+    result = list_visible_datasets(db_session, ANONYMOUS, locations=locations)
+
+    assert _ids(result) == {"good_station"}
 
 
 def test_position_is_none_for_mobile_dataset(db_session, locations):
