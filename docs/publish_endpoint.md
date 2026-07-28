@@ -61,3 +61,7 @@ curl -H "Authorization: Bearer key-one" http://127.0.0.1:8000/publish/datasets
 curl -H "Authorization: Bearer key-one" \
   http://127.0.0.1:8000/publish/kapp_thordsen_10minute/2026-06 -o out.nc
 ```
+
+Or from Swagger UI (`/docs`): click **Authorize** (top right), enter the raw key (no
+`Bearer ` prefix — Swagger adds it) under `HTTPBearer`, then **Try it out** on either
+`/publish/datasets` or `/publish/{dataset_id}/{period}`.

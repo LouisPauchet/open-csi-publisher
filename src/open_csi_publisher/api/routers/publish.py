@@ -4,8 +4,9 @@ import io
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.api.deps import get_dataset_location, get_dataset_locations, get_db_session
@@ -25,14 +26,20 @@ from open_csi_publisher.state import repository
 
 router = APIRouter()
 
+# auto_error=False so a missing/malformed header falls through to our own 401
+# below rather than HTTPBearer's default 403 — this is also what makes
+# FastAPI register HTTPBearer as an OpenAPI security scheme, which is what
+# gives Swagger UI both the per-endpoint lock icon and the "Authorize" button
+# (i.e. somewhere to actually enter the key from "Try it out") that a plain
+# `request.headers.get("authorization")` read never produced.
+_bearer_scheme = HTTPBearer(auto_error=False)
 
-def require_api_key(request: Request) -> None:
+
+def require_api_key(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme)) -> None:
     """A separate, simpler mechanism from get_current_user's OIDC session flow
     (implementation_plan.md §11): a small number of trusted server-to-server
     consumers, not end users — no session, no redirect flow."""
-    auth_header = request.headers.get("authorization", "")
-    key = auth_header[len("Bearer ") :] if auth_header.startswith("Bearer ") else None
-    if key is None or key not in settings.publish_api_keys:
+    if credentials is None or credentials.credentials not in settings.publish_api_keys:
         raise HTTPException(status_code=401)
 
 
