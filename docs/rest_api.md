@@ -64,11 +64,12 @@ data has gaps; standard JSON has no `NaN` literal, so this endpoint substitutes 
 after converting from `xarray`/`pandas`, since assigning `None` directly into a
 `float64` column gets silently cast back to `NaN` by pandas — the substitution has to
 happen after `to_dict()`, at the plain-Python-list level). For an `extra_dimension`
-variable (e.g. a
-height-stacked group), the response naturally broadcasts onto every `(time, <dim>)`
-combination via `xarray`'s own `to_dataframe()`, so plain `(time,)` variables appear
-duplicated once per dimension value in that case — a standard `xarray`/`pandas`
-flattening, not a hand-rolled scheme.
+variable (e.g. a height-stacked group), the response is flattened wide, not long: one
+column per `(variable, dimension-value)` combination, named `<variable>_<value><units>`
+(e.g. `air_temperature_2m`, `air_temperature_10m`) — units are appended only when the
+dimension value is numeric, omitted for a named/string dimension value (e.g.
+`wind_direction_average`). Every row still corresponds to exactly one `time`; no other
+variable's values are duplicated. See `to_wide_dataframe()` in `core/export.py`.
 
 **This is how the listing page's map gets a mobile dataset's position** — there's no
 separate "position" endpoint; the map's frontend just requests
