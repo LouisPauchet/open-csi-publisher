@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,11 +21,13 @@
     }
   </style>
 </head>
+
 <body>
   <header class="site-header">
     <div class="site-header-inner">
       <a class="site-title" href="/">
-        {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{% endif %}
+        {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{%
+        endif %}
         <span>{{ branding.site_name }}</span>
       </a>
       {% if oidc_enabled %}
@@ -43,7 +46,10 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer">
-    <div class="site-footer-inner">Built by Louis Pauchet</div>
+    <div class="site-footer-inner">
+      Made with 🥶 by Louis Pauchet at <a href="https://www.unis.no/">UNIS</a>, Svalbard. Open CSI Publisher · EUPL-1.2
+    </div>
   </footer>
 </body>
+
 </html>
