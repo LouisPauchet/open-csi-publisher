@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -26,6 +27,15 @@ def record_config_version(
     session.add(version)
     session.flush()
     return version
+
+
+def touch_config_version(session: Session, version: ConfigVersion) -> None:
+    """Records that `version`'s hash was just re-verified against the source and
+    found unchanged, without inserting a new row — resets the
+    config_recheck_interval_seconds window (core/config_versioning.py) so the
+    next access doesn't immediately re-check again."""
+    version.last_checked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    session.flush()
 
 
 def list_file_index(session: Session, dataset_id: str) -> list[FileRecord]:

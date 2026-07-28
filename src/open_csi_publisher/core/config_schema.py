@@ -145,6 +145,10 @@ class LoggerNetSourceConfig(BaseModel):
     table_name: str | None = None
     historical_suffix: str = "_Historical"
     record_column: str = "RECORD"
+    # Per-station opt-out of the Redis parsed-file cache (state/cache.py):
+    # stations with very large/high-frequency files (e.g. sonic anemometers)
+    # may prefer to always reparse rather than cache the entire parsed file.
+    cache_enabled: bool = True
 
 
 class GenericCsvSourceConfig(BaseModel):
@@ -156,6 +160,7 @@ class GenericCsvSourceConfig(BaseModel):
 
     file_path: str
     timestamp_column: str = "timestamp"
+    cache_enabled: bool = True
 
 
 class ThingsBoardSourceConfig(BaseModel):

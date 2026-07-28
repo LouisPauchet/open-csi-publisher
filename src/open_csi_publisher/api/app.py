@@ -12,7 +12,7 @@ from open_csi_publisher.api.deps import get_dataset_locations
 from open_csi_publisher.api.opendap import build_opendap_app
 from open_csi_publisher.api.routers import auth, dataset_detail, datasets_api, pages, publish
 from open_csi_publisher.settings import settings
-from open_csi_publisher.state.db import get_engine, init_db
+from open_csi_publisher.state.db import get_engine, run_migrations
 from open_csi_publisher.api.deps import get_branding
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -25,7 +25,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=branding.site_name)
 
     engine = get_engine(settings.database_url)
-    init_db(engine)
+    run_migrations(settings.database_url, settings.base_dir)
     app.state.session_factory = sessionmaker(bind=engine)
 
     app.include_router(pages.router)

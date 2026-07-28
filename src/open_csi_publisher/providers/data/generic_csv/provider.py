@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,8 @@ import xarray as xr
 from open_csi_publisher.core.config_schema import GenericCsvSourceConfig
 from open_csi_publisher.core.models import FileRecord
 from open_csi_publisher.providers.base import DataProvider
+from open_csi_publisher.settings import settings
+from open_csi_publisher.state.cache import NullParseCache, ParseCache
 
 
 class GenericCsvDataProvider(DataProvider):
@@ -26,8 +29,9 @@ class GenericCsvDataProvider(DataProvider):
     DB-backed source might use a last_modified column instead").
     """
 
-    def __init__(self, data_root: Path):
+    def __init__(self, data_root: Path, cache: ParseCache | NullParseCache | None = None):
         self._data_root = Path(data_root)
+        self._cache = cache if cache is not None else NullParseCache()
 
     def get_file_index(
         self, source_config: GenericCsvSourceConfig, previous: Sequence[FileRecord] = ()
@@ -41,7 +45,7 @@ class GenericCsvDataProvider(DataProvider):
                 return [replace(prev, status="closed")]
             return [prev]  # already closed, mtime confirmed unchanged
 
-        parsed = self._parse(path, source_config)
+        parsed = self._parse_cached(path, mtime_token, source_config)
         return [
             FileRecord(
                 file_name=source_config.file_path,
@@ -64,10 +68,43 @@ class GenericCsvDataProvider(DataProvider):
     ) -> xr.Dataset:
         record = files[0]
         path = self._data_root / record.file_name
-        usecols = [source_config.timestamp_column, *variables] if variables is not None else None
-        df = self._parse(path, source_config, usecols=usecols)
+        df = self._parse_cached(path, record.size, source_config, variables=variables)
         ds = xr.Dataset.from_dataframe(df)
         return ds.sel(time=slice(start, end))
+
+    def _parse_cached(
+        self,
+        path: Path,
+        mtime_token: int,
+        source_config: GenericCsvSourceConfig,
+        variables: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """Caches the parsed file keyed on (file_path, mtime_token) so
+        get_file_index()'s own parse (when mtime changed) and the read_range()
+        call that immediately follows it share one parse instead of two, and so
+        a later request for a different variable subset of the same file/mtime
+        is a cache hit rather than a fresh parse.
+
+        With no real cache backing this (cache_enabled=False, or no Redis
+        configured at all), falls back to exactly today's behavior: a single
+        parse per call, with `variables` pushed down to pandas as `usecols`
+        rather than read in full and subset afterward.
+        """
+        if not source_config.cache_enabled or not self._cache.enabled:
+            usecols = [source_config.timestamp_column, *variables] if variables is not None else None
+            return self._parse(path, source_config, usecols=usecols)
+
+        cache_key = f"genericcsv:{source_config.file_path}:{mtime_token}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            df = pickle.loads(cached)
+        else:
+            df = self._parse(path, source_config)
+            self._cache.set(cache_key, pickle.dumps(df), ttl=settings.redis_cache_ttl_seconds)
+
+        if variables is not None:
+            df = df[[v for v in variables if v in df.columns]]
+        return df
 
     def _parse(
         self,

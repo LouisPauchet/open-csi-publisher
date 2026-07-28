@@ -48,6 +48,11 @@ RUN groupadd --system app && useradd --system --gid app --home-dir /app --create
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# alembic.ini/alembic/ aren't part of the installed wheel (they're migration
+# scripts, not package code) — run_migrations() (state/db.py) resolves
+# alembic.ini relative to BASE_DIR at startup, so it needs to exist here.
+COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app alembic/ alembic/
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \

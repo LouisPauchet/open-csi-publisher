@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 from open_csi_publisher.core.config_schema import DatasetConfig
 from open_csi_publisher.core.config_versioning import get_versioned_config
@@ -24,10 +25,15 @@ class CountingConfigProvider(FolderConfigProvider):
     def __init__(self, folder):
         super().__init__(folder)
         self.load_config_calls = 0
+        self.config_hash_calls = 0
 
     def load_config(self, dataset_id: str):
         self.load_config_calls += 1
         return super().load_config(dataset_id)
+
+    def config_hash(self, dataset_id: str) -> str:
+        self.config_hash_calls += 1
+        return super().config_hash(dataset_id)
 
 
 def _write(tmp_path, content: dict) -> None:
@@ -51,10 +57,14 @@ def test_unchanged_config_does_not_reload_or_resnapshot(tmp_path, db_session):
     _write(tmp_path, CONFIG)
     provider = CountingConfigProvider(tmp_path)
 
-    get_versioned_config("station_a", session=db_session, config_provider=provider)
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0
+    )
     assert provider.load_config_calls == 1
 
-    get_versioned_config("station_a", session=db_session, config_provider=provider)
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0
+    )
     assert provider.load_config_calls == 1  # served from the state store, not reloaded
 
 
@@ -62,16 +72,53 @@ def test_changed_config_records_a_new_version(tmp_path, db_session):
     _write(tmp_path, CONFIG)
     provider = CountingConfigProvider(tmp_path)
 
-    get_versioned_config("station_a", session=db_session, config_provider=provider)
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0
+    )
     first_version = repository.get_current_config_version(db_session, "station_a")
 
     changed = dict(CONFIG)
     changed["metadata"] = {"title": "Station A (renamed)"}
     _write(tmp_path, changed)
 
-    config = get_versioned_config("station_a", session=db_session, config_provider=provider)
+    config = get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0
+    )
     assert provider.load_config_calls == 2
     assert config.metadata.title == "Station A (renamed)"
 
     second_version = repository.get_current_config_version(db_session, "station_a")
     assert second_version.hash != first_version.hash
+
+
+def test_config_hash_not_rechecked_within_recheck_interval(tmp_path, db_session):
+    _write(tmp_path, CONFIG)
+    provider = CountingConfigProvider(tmp_path)
+
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=3600
+    )
+    assert provider.config_hash_calls == 1
+
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=3600
+    )
+    # within the window: the hash isn't re-checked at all, not even to confirm
+    # it's unchanged — this is the fix for "rechecked every reload"
+    assert provider.config_hash_calls == 1
+
+
+def test_config_hash_rechecked_after_recheck_interval_elapses(tmp_path, db_session):
+    _write(tmp_path, CONFIG)
+    provider = CountingConfigProvider(tmp_path)
+
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0.01
+    )
+    assert provider.config_hash_calls == 1
+
+    time.sleep(0.05)
+    get_versioned_config(
+        "station_a", session=db_session, config_provider=provider, recheck_interval_seconds=0.01
+    )
+    assert provider.config_hash_calls == 2

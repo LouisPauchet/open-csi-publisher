@@ -15,6 +15,7 @@ from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataPr
 from open_csi_publisher.providers.data.thingsboard.provider import ThingsBoardDataProvider
 from open_csi_publisher.providers.thingsboard_client import ThingsBoardClient
 from open_csi_publisher.settings import settings
+from open_csi_publisher.state.cache import get_parse_cache
 
 
 @dataclass(frozen=True)
@@ -107,9 +108,9 @@ def get_config_provider(source: SourceEntry, *, base_dir: Path) -> ConfigProvide
 
 def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
     if source.type == "loggernet":
-        return LoggerNetDataProvider(base_dir / source.data_location)
+        return LoggerNetDataProvider(base_dir / source.data_location, cache=get_parse_cache())
     if source.type == "generic_csv":
-        return GenericCsvDataProvider(base_dir / source.data_location)
+        return GenericCsvDataProvider(base_dir / source.data_location, cache=get_parse_cache())
     if source.type == "thingsboard":
         return ThingsBoardDataProvider(_get_thingsboard_client(source.credentials_env_prefix))
     raise ValueError(f"unknown source type: {source.type!r}")

@@ -300,3 +300,141 @@ def test_read_range_variables_restricts_columns(mount_root):
     )
     assert "wind_speed_Avg" in result.data_vars
     assert "relative_humidity_Avg" not in result.data_vars
+
+
+# --- read_range parsed-file cache (state/cache.py) --------------------------------
+
+
+class FakeCache:
+    """A ParseCache/NullParseCache stand-in that records what was stored, so
+    tests can assert both cache-hit behavior and (for the cache_enabled=False
+    opt-out) that nothing was ever written at all."""
+
+    enabled = True
+
+    def __init__(self):
+        self.store: dict[str, bytes] = {}
+        self.set_calls: list[tuple[str, int]] = []
+
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def set(self, key: str, value: bytes, ttl: int) -> None:
+        self.set_calls.append((key, ttl))
+        self.store[key] = value
+
+
+_TOA5_HEADER = (
+    '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+    '"TIMESTAMP","RECORD","AirT_C"\n'
+    '"TS","RN","Deg C"\n'
+    '"","Smp","Avg"\n'
+)
+
+
+def _write_toa5(path, rows: list[tuple[str, int, float]]) -> None:
+    body = "".join(f'"{ts}",{rec},{val}\n' for ts, rec, val in rows)
+    path.write_text(_TOA5_HEADER + body, encoding="utf-8")
+
+
+def test_read_range_caches_parsed_archived_file_and_never_reparses_it(tmp_path):
+    _write_toa5(tmp_path / "Station_Table.dat", [("2026-01-01 00:10:00", 1, 2.0)])
+    _write_toa5(tmp_path / "Station_Table_Historical.dat", [("2026-01-01 00:00:00", 0, 1.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    provider = LoggerNetDataProvider(tmp_path, cache=FakeCache())
+    records = provider.get_file_index(config)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        provider.read_range(config, files=records, start=None, end=None)
+        provider.read_range(config, files=records, start=None, end=None)
+
+        archived_calls = [c for c in spy.call_args_list if str(c.args[0]).endswith("_Historical.dat")]
+        assert len(archived_calls) == 1
+
+
+def test_read_range_caches_parsed_live_file_when_size_unchanged(tmp_path):
+    _write_toa5(tmp_path / "Station_Table.dat", [("2026-01-01 00:10:00", 1, 2.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    provider = LoggerNetDataProvider(tmp_path, cache=FakeCache())
+    records = provider.get_file_index(config)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        provider.read_range(config, files=records, start=None, end=None)
+        provider.read_range(config, files=records, start=None, end=None)
+        assert spy.call_count == 1
+
+
+def test_read_range_reparses_live_file_once_it_grows(tmp_path):
+    live_path = tmp_path / "Station_Table.dat"
+    _write_toa5(live_path, [("2026-01-01 00:10:00", 1, 2.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    provider = LoggerNetDataProvider(tmp_path, cache=FakeCache())
+    first_records = provider.get_file_index(config)
+
+    provider.read_range(config, files=first_records, start=None, end=None)
+
+    _write_toa5(
+        live_path, [("2026-01-01 00:10:00", 1, 2.0), ("2026-01-01 00:20:00", 2, 3.0)]
+    )
+    second_records = provider.get_file_index(config, previous=first_records)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        result = provider.read_range(config, files=second_records, start=None, end=None)
+        assert spy.call_count == 1
+        assert result.sizes["time"] == 2
+
+
+def test_read_range_without_a_cache_reparses_every_call(tmp_path):
+    _write_toa5(tmp_path / "Station_Table.dat", [("2026-01-01 00:10:00", 1, 2.0)])
+    _write_toa5(tmp_path / "Station_Table_Historical.dat", [("2026-01-01 00:00:00", 0, 1.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    provider = LoggerNetDataProvider(tmp_path)  # no cache passed: today's behavior, unchanged
+    records = provider.get_file_index(config)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        provider.read_range(config, files=records, start=None, end=None)
+        provider.read_range(config, files=records, start=None, end=None)
+        assert spy.call_count == 4  # 2 files x 2 calls, no caching at all
+
+
+def test_read_range_without_a_real_cache_still_pushes_usecols_down(tmp_path):
+    # cache_enabled defaults to True at the config level, but with no real cache
+    # backing it (NullParseCache), the always-full-parse-then-subset tradeoff
+    # isn't worth it — this must still take the cheaper partial-column read,
+    # exactly like before caching existed at all.
+    _write_toa5(tmp_path / "Station_Table.dat", [("2026-01-01 00:10:00", 1, 2.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    provider = LoggerNetDataProvider(tmp_path)  # no cache passed -> NullParseCache
+    records = provider.get_file_index(config)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        provider.read_range(config, files=records, start=None, end=None, variables=["AirT_C"])
+        assert spy.call_args.kwargs.get("usecols") == ["AirT_C"]
+
+
+def test_read_range_cache_enabled_false_bypasses_caching_entirely(tmp_path):
+    _write_toa5(tmp_path / "Station_Table.dat", [("2026-01-01 00:10:00", 1, 2.0)])
+    _write_toa5(tmp_path / "Station_Table_Historical.dat", [("2026-01-01 00:00:00", 0, 1.0)])
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat", cache_enabled=False)
+    fake_cache = FakeCache()
+    provider = LoggerNetDataProvider(tmp_path, cache=fake_cache)
+    records = provider.get_file_index(config)
+
+    with patch.object(
+        provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
+    ) as spy:
+        provider.read_range(config, files=records, start=None, end=None)
+        provider.read_range(config, files=records, start=None, end=None)
+        assert spy.call_count == 4  # 2 files x 2 calls: opt-out reparses every time
+
+    assert fake_cache.store == {}  # never written to, not just never read from

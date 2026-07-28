@@ -5,10 +5,12 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from open_csi_publisher.core.config_schema import GenericCsvSourceConfig
+from open_csi_publisher.providers.data.generic_csv import provider as provider_module
 from open_csi_publisher.providers.data.generic_csv.provider import GenericCsvDataProvider
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "generic_csv" / "data"
@@ -102,3 +104,84 @@ def test_read_range_variables_restricts_columns(data_root):
     ds = provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None, variables=["temp"])
     assert "temp" in ds.data_vars
     assert "humidity" not in ds.data_vars
+
+
+# --- parsed-file cache (state/cache.py) --------------------------------------------
+
+
+class FakeCache:
+    """A ParseCache/NullParseCache stand-in, same as tests/loggernet/test_provider.py's."""
+
+    enabled = True
+
+    def __init__(self):
+        self.store: dict[str, bytes] = {}
+
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def set(self, key: str, value: bytes, ttl: int) -> None:
+        self.store[key] = value
+
+
+def test_read_range_caches_parsed_file_when_mtime_unchanged(data_root):
+    provider = GenericCsvDataProvider(data_root, cache=FakeCache())
+
+    with patch.object(provider_module.pd, "read_csv", wraps=provider_module.pd.read_csv) as spy:
+        records = provider.get_file_index(SOURCE_CONFIG)  # 1 parse: nothing cached yet
+        provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None)  # cache hit
+        provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None)  # cache hit
+        assert spy.call_count == 1
+
+
+def test_read_range_reparses_once_mtime_changes(data_root):
+    provider = GenericCsvDataProvider(data_root, cache=FakeCache())
+    first = provider.get_file_index(SOURCE_CONFIG)
+    provider.read_range(SOURCE_CONFIG, files=first, start=None, end=None)
+
+    path = data_root / "station_x.csv"
+    with path.open("a", encoding="utf-8") as f:
+        f.write("2026-01-01 00:50:00,3.5,55\n")
+    new_time = time.time() + 5
+    os.utime(path, (new_time, new_time))
+
+    with patch.object(provider_module.pd, "read_csv", wraps=provider_module.pd.read_csv) as spy:
+        # this parse (mtime changed) populates the cache read_range then reuses
+        second = provider.get_file_index(SOURCE_CONFIG, previous=first)
+        assert spy.call_count == 1
+
+        ds = provider.read_range(SOURCE_CONFIG, files=second, start=None, end=None)
+        assert spy.call_count == 1  # served from the cache get_file_index just wrote
+        assert ds.sizes["time"] == 6
+
+
+def test_read_range_without_a_cache_reparses_every_call(data_root):
+    provider = GenericCsvDataProvider(data_root)  # no cache passed: today's behavior, unchanged
+    with patch.object(provider_module.pd, "read_csv", wraps=provider_module.pd.read_csv) as spy:
+        records = provider.get_file_index(SOURCE_CONFIG)
+        provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None)
+        provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None)
+        assert spy.call_count == 3  # 1 from get_file_index + 1 per read_range call
+
+
+def test_read_range_cache_enabled_false_bypasses_caching_entirely(data_root):
+    config = GenericCsvSourceConfig(file_path="station_x.csv", cache_enabled=False)
+    fake_cache = FakeCache()
+    provider = GenericCsvDataProvider(data_root, cache=fake_cache)
+
+    with patch.object(provider_module.pd, "read_csv", wraps=provider_module.pd.read_csv) as spy:
+        records = provider.get_file_index(config)
+        provider.read_range(config, files=records, start=None, end=None)
+        provider.read_range(config, files=records, start=None, end=None)
+        assert spy.call_count == 3
+
+    assert fake_cache.store == {}
+
+
+def test_read_range_without_a_real_cache_still_pushes_usecols_down(data_root):
+    provider = GenericCsvDataProvider(data_root)  # no cache passed -> NullParseCache
+    records = provider.get_file_index(SOURCE_CONFIG)
+
+    with patch.object(provider_module.pd, "read_csv", wraps=provider_module.pd.read_csv) as spy:
+        provider.read_range(SOURCE_CONFIG, files=records, start=None, end=None, variables=["temp"])
+        assert spy.call_args.kwargs.get("usecols") == [SOURCE_CONFIG.timestamp_column, "temp"]

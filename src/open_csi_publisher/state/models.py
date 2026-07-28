@@ -23,6 +23,13 @@ class ConfigVersion(Base):
     hash: Mapped[str] = mapped_column(String)
     content: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # When this row's hash was last verified against the source (not just when
+    # it was created) — lets get_versioned_config() skip re-checking the source
+    # entirely within settings.config_recheck_interval_seconds, rather than
+    # hitting it on every single dataset access.
+    last_checked_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 class FileIndexEntry(Base):
