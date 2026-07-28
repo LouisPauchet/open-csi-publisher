@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
+from loguru import logger
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from open_csi_publisher.api.access import is_visible
@@ -27,12 +30,23 @@ def list_visible_datasets(
     Restricted-dataset exclusion happens here, exactly once, before any
     search/filter logic runs — nothing downstream ever sees a restricted
     dataset for an anonymous caller (implementation_plan.md §10).
+
+    A dataset whose config file is broken (invalid JSON or fails schema
+    validation) is logged and skipped, not allowed to fail the whole
+    listing — one bad config file must not take every other dataset down
+    with it.
     """
     summaries: list[DatasetSummary] = []
     for location in locations:
-        config = get_versioned_config(
-            location.dataset_id, session=session, config_provider=location.config_provider
-        )
+        try:
+            config = get_versioned_config(
+                location.dataset_id, session=session, config_provider=location.config_provider
+            )
+        except (ValidationError, json.JSONDecodeError):
+            logger.error(
+                "skipping dataset {} from listing: config is invalid", location.dataset_id
+            )
+            continue
         if not is_visible(config, user):
             continue
 
