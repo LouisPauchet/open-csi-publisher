@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.4.0...open-csi-publisher-v0.4.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* flatten multidimensional variables into wide columns instead of duplicated rows ([ad168d8](https://github.com/LouisPauchet/open-csi-publisher/commit/ad168d8f086569fbb6a76e0976e8f363b31523ea))
+* register publish endpoint auth as an OpenAPI security scheme ([f8cc90a](https://github.com/LouisPauchet/open-csi-publisher/commit/f8cc90a6be3ec0496a1fff3144a09678894bf92c))
+* skip datasets with invalid config instead of failing the whole listing ([e4e57cc](https://github.com/LouisPauchet/open-csi-publisher/commit/e4e57ccd71ca703d8ecb90d19822ee391806b4cb))
+* skip datasets with invalid config instead of failing the whole listing ([1229d37](https://github.com/LouisPauchet/open-csi-publisher/commit/1229d37e347f43012d08c902c40859293d7a9d62))
+
+
+### Documentation
+
+* describe wide-format extra_dimension flattening in REST API docs ([2c8afd0](https://github.com/LouisPauchet/open-csi-publisher/commit/2c8afd0d00676d66d745cf7bcc1617d76015e6ba))
+
 ## [0.4.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.3.1...open-csi-publisher-v0.4.0) (2026-07-28)
 
 
