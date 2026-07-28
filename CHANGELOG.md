@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.3.1...open-csi-publisher-v0.4.0) (2026-07-28)
+
+
+### Features
+
+* add Alembic-based database migrations ([231f146](https://github.com/LouisPauchet/open-csi-publisher/commit/231f1465596d869cb1e13f045dc281b98118373a))
+* add Redis-backed cache for parsed file content ([9b855fa](https://github.com/LouisPauchet/open-csi-publisher/commit/9b855fa4423282bb2f5ae4601322b265d5f2afcc))
+* cache parsed generic-CSV file content, with a per-station opt-out ([7463ca9](https://github.com/LouisPauchet/open-csi-publisher/commit/7463ca92e4549c7db419d0bbb68baf0a8e33df3d))
+* cache parsed LoggerNet file content, with a per-station opt-out ([862d4f0](https://github.com/LouisPauchet/open-csi-publisher/commit/862d4f028b5a74c49b2d9d772a4f2caa19e832d7))
+* Redis parsed-file cache, DB-backed config revalidation, and Alembic migrations ([4494df0](https://github.com/LouisPauchet/open-csi-publisher/commit/4494df0de1b16cdfdcb7cc1b076e9780b3127086))
+* run database migrations automatically at app startup ([a66eb84](https://github.com/LouisPauchet/open-csi-publisher/commit/a66eb8426b0f60bc09ecdf3f1a5874e30a4cbef5))
+* skip station config-hash recheck within a revalidation window ([ae39255](https://github.com/LouisPauchet/open-csi-publisher/commit/ae392555874c69c6095a312146456079718a8f8d))
+* wire the parsed-file cache into data provider construction ([1570105](https://github.com/LouisPauchet/open-csi-publisher/commit/1570105a0fd8bd41dda7cebaf66608bdad043247))
+
+
+### Bug Fixes
+
+* add logernet example config ([01ff41b](https://github.com/LouisPauchet/open-csi-publisher/commit/01ff41b35912fe6beecc36d45b7f74e84910a6d1))
+* layout bug ([c219a41](https://github.com/LouisPauchet/open-csi-publisher/commit/c219a41614a88dc462a148a8a80ccf9f51c920cb))
+* update footer message ([32208aa](https://github.com/LouisPauchet/open-csi-publisher/commit/32208aaecf529580bf237253b8a4e9f01d046a9f))
+
 ## [0.3.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.3.0...open-csi-publisher-v0.3.1) (2026-07-22)
 
 
