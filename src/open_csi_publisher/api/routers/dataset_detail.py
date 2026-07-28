@@ -20,7 +20,7 @@ from open_csi_publisher.api.schemas import (
 )
 from open_csi_publisher.core.builder import build_dataset
 from open_csi_publisher.core.config_versioning import get_versioned_config
-from open_csi_publisher.core.export import render_csv_with_metadata_header
+from open_csi_publisher.core.export import render_csv_with_metadata_header, to_wide_dataframe
 from open_csi_publisher.sources import DatasetLocation
 
 router = APIRouter()
@@ -115,7 +115,7 @@ def get_dataset_data(
     )
     if format == "csv":
         return PlainTextResponse(render_csv_with_metadata_header(ds), media_type="text/csv")
-    df = ds.to_dataframe().reset_index()
+    df = to_wide_dataframe(ds)
     return _json_safe(df.to_dict(orient="list"))
 
 
