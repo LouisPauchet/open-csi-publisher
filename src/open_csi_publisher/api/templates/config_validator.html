@@ -22,12 +22,22 @@
 
 <style>
   /* This page is an ordinary flowing document, not the fixed-height
-     internal-scroll-panels layout site.css sets up on body/main for the
-     listing/map page — without this override, results taller than the
-     viewport (e.g. a config with many variables) are clipped with no way
-     to scroll down to them. Same override site.css itself already applies
-     as its own narrow-viewport fallback (see its @media (max-width: 900px)
-     block), just applied unconditionally here instead of only below 900px. */
+     internal-scroll-panels layout site.css sets up on html/body/main for
+     the listing/map page — without this override, results taller than the
+     viewport (e.g. a config with many variables) have nowhere to scroll,
+     and since body stays pinned to a fixed height:100% flex container,
+     main's overflowing content just visually bleeds past its flex-computed
+     box instead of the layout growing — leaving the footer (the next flex
+     item) stranded at its old position instead of pushed below the actual
+     content. All three declarations matter; this is the same "ordinary
+     scrolling page" fallback site.css itself already applies (see its
+     @media (max-width: 900px) block), just applied unconditionally here
+     instead of only below 900px. */
+  html,
+  body {
+    height: auto;
+  }
+
   body {
     overflow: visible;
   }
