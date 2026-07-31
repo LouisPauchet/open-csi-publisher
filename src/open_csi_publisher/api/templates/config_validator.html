@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Config Validator — {{ branding.site_name }}{% endblock %}
+
+{% block content %}
+<div class="config-validator">
+  <h1>Config Validator</h1>
+  <p>Paste a dataset config's JSON below to check it and see a summary of what it declares.
+    Nothing is saved — validation runs the same rules the server itself applies.</p>
+
+  <textarea id="config-json" rows="20"
+    placeholder='{"id": "my_station", "source_type": "loggernet", ...}'></textarea>
+  <div>
+    <button id="validate-btn" type="button">Validate</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<style>
+  .config-validator {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .config-validator textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85rem;
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    padding: 0.75rem;
+  }
+
+  .config-validator button {
+    margin-top: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    background: var(--brand-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--brand-radius);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .config-validator button:hover {
+    opacity: 0.9;
+  }
+
+  #result {
+    margin-top: 1.5rem;
+  }
+
+  .cv-errors {
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    border-radius: var(--brand-radius);
+    padding: 1rem;
+    color: #7a1f1a;
+  }
+
+  .cv-errors h2 {
+    margin-top: 0;
+  }
+
+  .cv-errors ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .cv-summary-card {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .cv-summary-card h2 {
+    margin-top: 0;
+  }
+
+  .cv-kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+  }
+
+  .cv-kv dt {
+    font-weight: 600;
+  }
+
+  .cv-kv dd {
+    margin: 0;
+  }
+
+  table.cv-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+  }
+
+  table.cv-table th,
+  table.cv-table td {
+    text-align: left;
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--brand-border);
+    font-size: 0.9rem;
+  }
+</style>
+
+<script>
+  const textarea = document.getElementById("config-json");
+  const result = document.getElementById("result");
+
+  document.getElementById("validate-btn").addEventListener("click", async () => {
+    result.innerHTML = "<p>Validating…</p>";
+    let response;
+    try {
+      response = await fetch("/config-validator/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: textarea.value,
+      });
+    } catch (err) {
+      result.innerHTML = `<div class="cv-errors"><h2>Request failed</h2><p>${escapeHtml(String(err))}</p></div>`;
+      return;
+    }
+    const data = await response.json();
+    result.innerHTML = data.valid ? renderSummary(data.summary) : renderErrors(data.errors);
+  });
+
+  function renderErrors(errors) {
+    const items = errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+    return `<div class="cv-errors"><h2>${errors.length} problem${errors.length === 1 ? "" : "s"} found</h2><ul>${items}</ul></div>`;
+  }
+
+  function renderSummary(summary) {
+    const kv = (pairs) =>
+      `<dl class="cv-kv">${pairs
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`)
+        .join("")}</dl>`;
+
+    const overview = kv([
+      ["id", summary.id],
+      ["title", summary.title],
+      ["platform_type", summary.platform_type],
+      ["access", summary.access],
+      ["source_type", summary.source_type],
+    ]);
+
+    const variableRows = summary.variables
+      .map(
+        (v) => `<tr>
+          <td>${escapeHtml(v.name)}</td>
+          <td>${escapeHtml(v.standard_name || "")}</td>
+          <td>${escapeHtml(v.units || "")}</td>
+          <td>${escapeHtml(v.dtype)}</td>
+          <td>${escapeHtml(v.raw_names.join(", "))}</td>
+          <td>${v.extra_dimension ? escapeHtml(v.extra_dimension.map((d) => d.name).join(", ")) : ""}</td>
+        </tr>`
+      )
+      .join("");
+
+    const deploymentRows = summary.deployments
+      .map(
+        (d) => `<tr>
+          <td>${escapeHtml(d.start)}</td>
+          <td>${escapeHtml(d.end || "open")}</td>
+          <td>${d.lat !== null ? escapeHtml(`${d.lat}, ${d.lon}`) : ""}</td>
+          <td>${escapeHtml(d.elevation ?? "")}</td>
+          <td>${escapeHtml(d.platform_name || "")}</td>
+        </tr>`
+      )
+      .join("");
+
+    return `
+      <div class="cv-summary-card">
+        <h2>✓ Valid config</h2>
+        ${overview}
+      </div>
+      <div class="cv-summary-card">
+        <h2>Variables (${summary.variables.length})</h2>
+        <table class="cv-table">
+          <thead><tr><th>Name</th><th>Standard name</th><th>Units</th><th>Type</th><th>Raw column(s)</th><th>Extra dim(s)</th></tr></thead>
+          <tbody>${variableRows}</tbody>
+        </table>
+      </div>
+      <div class="cv-summary-card">
+        <h2>Deployments (${summary.deployments.length})</h2>
+        <table class="cv-table">
+          <thead><tr><th>Start</th><th>End</th><th>Lat, Lon</th><th>Elevation</th><th>Platform name</th></tr></thead>
+          <tbody>${deploymentRows}</tbody>
+        </table>
+      </div>
+      <div class="cv-summary-card">
+        <h2>Output</h2>
+        ${kv([
+          ["file_naming", summary.output.file_naming],
+          ["publish", summary.output.publish],
+        ])}
+      </div>
+      <div class="cv-summary-card">
+        <h2>Source config</h2>
+        ${kv(Object.entries(summary.source_config))}
+      </div>
+    `;
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+  }
+</script>
+{% endblock %}
