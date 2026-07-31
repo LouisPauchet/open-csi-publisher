@@ -78,7 +78,12 @@ def test_missing_required_field_is_reported_as_an_error(client):
     body = response.json()
     assert body["valid"] is False
     assert body["summary"] is None
-    assert any("metadata" in err for err in body["errors"])
+    errors = body["errors"]
+    assert any(err["loc"] == "metadata" for err in errors)
+    # every error carries a line to jump to, even one whose field is simply
+    # absent (falls back to the nearest ancestor that does exist — here, the
+    # top-level object)
+    assert all(isinstance(err["line"], int) for err in errors)
 
 
 def test_mobile_deployment_missing_platform_name_is_reported(client):
@@ -93,7 +98,7 @@ def test_mobile_deployment_missing_platform_name_is_reported(client):
     assert response.status_code == 200
     body = response.json()
     assert body["valid"] is False
-    assert any("platform_name" in err for err in body["errors"])
+    assert any("platform_name" in err["msg"] for err in body["errors"])
 
 
 def test_malformed_json_body_is_reported_as_a_friendly_error(client):
@@ -106,7 +111,9 @@ def test_malformed_json_body_is_reported_as_a_friendly_error(client):
     assert response.status_code == 200
     body = response.json()
     assert body["valid"] is False
-    assert any("json" in err.lower() for err in body["errors"])
+    errors = body["errors"]
+    assert any("json" in err["msg"].lower() for err in errors)
+    assert errors[0]["line"] == 1
 
 
 def test_non_object_json_body_is_reported_as_an_error(client):
@@ -119,4 +126,36 @@ def test_non_object_json_body_is_reported_as_an_error(client):
     assert response.status_code == 200
     body = response.json()
     assert body["valid"] is False
-    assert any("object" in err.lower() for err in body["errors"])
+    assert any("object" in err["msg"].lower() for err in body["errors"])
+
+
+def test_error_deep_in_a_nested_array_reports_its_actual_source_line(client):
+    # a hand-formatted (not json.dumps-minified) multi-line body, so line
+    # numbers are meaningfully distinct — proves the line map walks into
+    # nested arrays/objects correctly, not just the top level
+    text = """{
+  "id": "test_station",
+  "source_type": "loggernet",
+  "access": "public",
+  "source_config": {"file_pattern": "Test/Test.dat"},
+  "variables": [
+    {"raw_name": "a", "standard_name": "air_temperature"},
+    {"raw_name": "b", "standard_name": "wind_speed", "dtype": "not_a_real_dtype"}
+  ],
+  "platform_type": "fixed",
+  "deployments": [{"start": "2020-01-01T00:00:00Z", "lat": 78.5, "lon": 15.0}],
+  "metadata": {"title": "Test Station"},
+  "output": {"file_naming": "{station}.nc"}
+}"""
+    bad_line = next(i for i, line in enumerate(text.splitlines(), start=1) if "not_a_real_dtype" in line)
+
+    response = client.post(
+        "/config-validator/validate", content=text, headers={"content-type": "application/json"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid"] is False
+    dtype_errors = [err for err in body["errors"] if err["loc"] == "variables.1.dtype"]
+    assert len(dtype_errors) == 1
+    assert dtype_errors[0]["line"] == bad_line

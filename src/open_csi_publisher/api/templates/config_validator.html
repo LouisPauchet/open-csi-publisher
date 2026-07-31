@@ -8,8 +8,11 @@
   <p>Paste a dataset config's JSON below to check it and see a summary of what it declares.
     Nothing is saved — validation runs the same rules the server itself applies.</p>
 
-  <textarea id="config-json" rows="20"
-    placeholder='{"id": "my_station", "source_type": "loggernet", ...}'></textarea>
+  <div class="cv-editor">
+    <div id="line-numbers" class="cv-line-numbers" aria-hidden="true">1</div>
+    <textarea id="config-json" rows="20" spellcheck="false"
+      placeholder='{"id": "my_station", "source_type": "loggernet", ...}'></textarea>
+  </div>
   <div>
     <button id="validate-btn" type="button">Validate</button>
   </div>
@@ -18,20 +21,67 @@
 </div>
 
 <style>
+  /* This page is an ordinary flowing document, not the fixed-height
+     internal-scroll-panels layout site.css sets up on body/main for the
+     listing/map page — without this override, results taller than the
+     viewport (e.g. a config with many variables) are clipped with no way
+     to scroll down to them. Same override site.css itself already applies
+     as its own narrow-viewport fallback (see its @media (max-width: 900px)
+     block), just applied unconditionally here instead of only below 900px. */
+  body {
+    overflow: visible;
+  }
+
+  main {
+    display: block;
+    overflow: visible;
+  }
+
   .config-validator {
     max-width: 900px;
     margin: 0 auto;
     padding: 1.5rem;
   }
 
+  .cv-editor {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    overflow: hidden;
+  }
+
+  .cv-line-numbers {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 0.75rem 0.5rem;
+    text-align: right;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--muted);
+    background: rgba(0, 0, 0, 0.03);
+    white-space: pre;
+    overflow: hidden;
+    user-select: none;
+  }
+
   .config-validator textarea {
+    flex: 1;
+    min-width: 0;
     width: 100%;
     box-sizing: border-box;
     font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
     font-size: 0.85rem;
-    border: 1px solid var(--brand-border);
-    border-radius: var(--brand-radius);
+    line-height: 1.4;
+    border: none;
+    border-left: 1px solid var(--brand-border);
+    border-radius: 0;
     padding: 0.75rem;
+  }
+
+  .config-validator textarea:focus {
+    outline: none;
   }
 
   .config-validator button {
@@ -68,6 +118,25 @@
   .cv-errors ul {
     margin: 0;
     padding-left: 1.25rem;
+  }
+
+  .cv-errors li[data-line] {
+    cursor: pointer;
+  }
+
+  .cv-errors li[data-line]:hover {
+    text-decoration: underline;
+  }
+
+  .cv-error-line {
+    display: inline-block;
+    min-width: 4.5rem;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+  }
+
+  .cv-error-loc {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
   }
 
   .cv-summary-card {
@@ -113,7 +182,35 @@
 
 <script>
   const textarea = document.getElementById("config-json");
+  const lineNumbers = document.getElementById("line-numbers");
   const result = document.getElementById("result");
+
+  function updateLineNumbers() {
+    const count = textarea.value.split("\n").length;
+    const digits = [];
+    for (let i = 1; i <= count; i++) digits.push(i);
+    lineNumbers.textContent = digits.join("\n");
+  }
+
+  textarea.addEventListener("input", updateLineNumbers);
+  textarea.addEventListener("scroll", () => {
+    lineNumbers.scrollTop = textarea.scrollTop;
+  });
+  updateLineNumbers();
+
+  function jumpToLine(line) {
+    const lines = textarea.value.split("\n");
+    let offset = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) {
+      offset += lines[i].length + 1;
+    }
+    const lineText = lines[line - 1] || "";
+    textarea.focus();
+    // selecting the line's own (trimmed) text, not the leading whitespace,
+    // so what gets highlighted is the meaningful part of the line
+    const leading = lineText.length - lineText.trimStart().length;
+    textarea.setSelectionRange(offset + leading, offset + lineText.length);
+  }
 
   document.getElementById("validate-btn").addEventListener("click", async () => {
     result.innerHTML = "<p>Validating…</p>";
@@ -130,10 +227,20 @@
     }
     const data = await response.json();
     result.innerHTML = data.valid ? renderSummary(data.summary) : renderErrors(data.errors);
+    result.querySelectorAll("li[data-line]").forEach((el) => {
+      el.addEventListener("click", () => jumpToLine(parseInt(el.dataset.line, 10)));
+    });
   });
 
   function renderErrors(errors) {
-    const items = errors.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+    const items = errors
+      .map((e) => {
+        const lineAttr = e.line ? ` data-line="${e.line}"` : "";
+        const lineLabel = e.line ? `Line ${e.line}` : "—";
+        const loc = e.loc ? `<span class="cv-error-loc">${escapeHtml(e.loc)}</span> — ` : "";
+        return `<li${lineAttr}><span class="cv-error-line">${lineLabel}</span>${loc}${escapeHtml(e.msg)}</li>`;
+      })
+      .join("");
     return `<div class="cv-errors"><h2>${errors.length} problem${errors.length === 1 ? "" : "s"} found</h2><ul>${items}</ul></div>`;
   }
 
