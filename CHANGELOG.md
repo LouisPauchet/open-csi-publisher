@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.4.1...open-csi-publisher-v0.5.0) (2026-08-05)
+
+
+### Features
+
+* add a config validator page for pasting and checking dataset config JSON ([30c84e1](https://github.com/LouisPauchet/open-csi-publisher/commit/30c84e16475e171d8af557153b0c4a889bb56b20))
+
+
+### Bug Fixes
+
+* make the config validator page scroll, and add line numbers to errors ([90b870e](https://github.com/LouisPauchet/open-csi-publisher/commit/90b870e7c4125422194ca5e0a0da9ac78c8813bb))
+* pin the config validator page's footer below content, not mid-page ([343f427](https://github.com/LouisPauchet/open-csi-publisher/commit/343f427fdee2e7166ff6dbadbb1704422e135640))
+* stop the variables/deployments tables and kv panels from overflowing their cards ([f805937](https://github.com/LouisPauchet/open-csi-publisher/commit/f8059374457a2af11f1b370400c67306999b82ea))
+
 ## [0.4.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.4.0...open-csi-publisher-v0.4.1) (2026-07-28)
 
 
