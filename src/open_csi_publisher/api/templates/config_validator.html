@@ -51,6 +51,14 @@
     max-width: 900px;
     margin: 0 auto;
     padding: 1.5rem;
+    box-sizing: border-box;
+    /* Inherited safety net: a long unbroken token anywhere below (a raw
+       column name, a file_pattern path, an error's dotted loc path) wraps
+       instead of forcing its container wider than the card that holds it.
+       Belt-and-suspenders with the more targeted fixes below, which exist
+       because this alone doesn't reliably stop table/grid blowout in every
+       browser. */
+    overflow-wrap: anywhere;
   }
 
   .cv-editor {
@@ -163,7 +171,7 @@
 
   .cv-kv {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: 0.25rem 1rem;
   }
 
@@ -172,13 +180,26 @@
   }
 
   .cv-kv dd {
+    /* Grid items default to min-width:auto (not 0), so a long unbroken
+       value (e.g. a file_pattern path) would otherwise refuse to shrink
+       and blow out the card's width instead of wrapping. */
+    min-width: 0;
     margin: 0;
+  }
+
+  .cv-table-wrap {
+    /* Hard fallback for whatever the wrapping rules above don't catch
+       (e.g. several only-moderately-long columns whose sum still exceeds
+       the card) — the table scrolls within its own card instead of the
+       card (or the page) growing past its bounds. */
+    overflow-x: auto;
+    margin-top: 0.5rem;
   }
 
   table.cv-table {
     width: 100%;
+    min-width: 520px;
     border-collapse: collapse;
-    margin-top: 0.5rem;
   }
 
   table.cv-table th,
@@ -187,6 +208,16 @@
     padding: 0.35rem 0.6rem;
     border-bottom: 1px solid var(--brand-border);
     font-size: 0.9rem;
+  }
+
+  /* Short, fixed-vocabulary columns (units, dtype) shouldn't wrap at all —
+     without this, auto table layout starves them of space in favor of the
+     long Name/Standard-name/Raw-column(s) columns and wraps even words
+     like "numeric" mid-word. Long values still safely fall back to the
+     overflow-x:auto wrapper (.cv-table-wrap) if a units string is ever
+     unusually long. */
+  table.cv-table .cv-nowrap {
+    white-space: nowrap;
   }
 </style>
 
@@ -274,8 +305,8 @@
         (v) => `<tr>
           <td>${escapeHtml(v.name)}</td>
           <td>${escapeHtml(v.standard_name || "")}</td>
-          <td>${escapeHtml(v.units || "")}</td>
-          <td>${escapeHtml(v.dtype)}</td>
+          <td class="cv-nowrap">${escapeHtml(v.units || "")}</td>
+          <td class="cv-nowrap">${escapeHtml(v.dtype)}</td>
           <td>${escapeHtml(v.raw_names.join(", "))}</td>
           <td>${v.extra_dimension ? escapeHtml(v.extra_dimension.map((d) => d.name).join(", ")) : ""}</td>
         </tr>`
@@ -301,17 +332,21 @@
       </div>
       <div class="cv-summary-card">
         <h2>Variables (${summary.variables.length})</h2>
-        <table class="cv-table">
-          <thead><tr><th>Name</th><th>Standard name</th><th>Units</th><th>Type</th><th>Raw column(s)</th><th>Extra dim(s)</th></tr></thead>
-          <tbody>${variableRows}</tbody>
-        </table>
+        <div class="cv-table-wrap">
+          <table class="cv-table">
+            <thead><tr><th>Name</th><th>Standard name</th><th class="cv-nowrap">Units</th><th class="cv-nowrap">Type</th><th>Raw column(s)</th><th>Extra dim(s)</th></tr></thead>
+            <tbody>${variableRows}</tbody>
+          </table>
+        </div>
       </div>
       <div class="cv-summary-card">
         <h2>Deployments (${summary.deployments.length})</h2>
-        <table class="cv-table">
-          <thead><tr><th>Start</th><th>End</th><th>Lat, Lon</th><th>Elevation</th><th>Platform name</th></tr></thead>
-          <tbody>${deploymentRows}</tbody>
-        </table>
+        <div class="cv-table-wrap">
+          <table class="cv-table">
+            <thead><tr><th>Start</th><th>End</th><th>Lat, Lon</th><th>Elevation</th><th>Platform name</th></tr></thead>
+            <tbody>${deploymentRows}</tbody>
+          </table>
+        </div>
       </div>
       <div class="cv-summary-card">
         <h2>Output</h2>
