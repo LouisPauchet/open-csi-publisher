@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Config Validator — {{ branding.site_name }}{% endblock %}
+
+{% block content %}
+<div class="config-validator">
+  <h1>Config Validator</h1>
+  <p>Paste a dataset config's JSON below to check it and see a summary of what it declares.
+    Nothing is saved — validation runs the same rules the server itself applies.</p>
+
+  <div class="cv-editor">
+    <div id="line-numbers" class="cv-line-numbers" aria-hidden="true">1</div>
+    <textarea id="config-json" rows="20" spellcheck="false"
+      placeholder='{"id": "my_station", "source_type": "loggernet", ...}'></textarea>
+  </div>
+  <div>
+    <button id="validate-btn" type="button">Validate</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<style>
+  /* This page is an ordinary flowing document, not the fixed-height
+     internal-scroll-panels layout site.css sets up on html/body/main for
+     the listing/map page — without this override, results taller than the
+     viewport (e.g. a config with many variables) have nowhere to scroll,
+     and since body stays pinned to a fixed height:100% flex container,
+     main's overflowing content just visually bleeds past its flex-computed
+     box instead of the layout growing — leaving the footer (the next flex
+     item) stranded at its old position instead of pushed below the actual
+     content. All three declarations matter; this is the same "ordinary
+     scrolling page" fallback site.css itself already applies (see its
+     @media (max-width: 900px) block), just applied unconditionally here
+     instead of only below 900px. */
+  html,
+  body {
+    height: auto;
+  }
+
+  body {
+    overflow: visible;
+  }
+
+  main {
+    display: block;
+    overflow: visible;
+  }
+
+  .config-validator {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    /* Inherited safety net: a long unbroken token anywhere below (a raw
+       column name, a file_pattern path, an error's dotted loc path) wraps
+       instead of forcing its container wider than the card that holds it.
+       Belt-and-suspenders with the more targeted fixes below, which exist
+       because this alone doesn't reliably stop table/grid blowout in every
+       browser. */
+    overflow-wrap: anywhere;
+  }
+
+  .cv-editor {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    overflow: hidden;
+  }
+
+  .cv-line-numbers {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 0.75rem 0.5rem;
+    text-align: right;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--muted);
+    background: rgba(0, 0, 0, 0.03);
+    white-space: pre;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .config-validator textarea {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    border: none;
+    border-left: 1px solid var(--brand-border);
+    border-radius: 0;
+    padding: 0.75rem;
+  }
+
+  .config-validator textarea:focus {
+    outline: none;
+  }
+
+  .config-validator button {
+    margin-top: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    background: var(--brand-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--brand-radius);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .config-validator button:hover {
+    opacity: 0.9;
+  }
+
+  #result {
+    margin-top: 1.5rem;
+  }
+
+  .cv-errors {
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    border-radius: var(--brand-radius);
+    padding: 1rem;
+    color: #7a1f1a;
+  }
+
+  .cv-errors h2 {
+    margin-top: 0;
+  }
+
+  .cv-errors ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .cv-errors li[data-line] {
+    cursor: pointer;
+  }
+
+  .cv-errors li[data-line]:hover {
+    text-decoration: underline;
+  }
+
+  .cv-error-line {
+    display: inline-block;
+    min-width: 4.5rem;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+  }
+
+  .cv-error-loc {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  .cv-summary-card {
+    background: var(--brand-background);
+    border: 1px solid var(--brand-border);
+    border-radius: var(--brand-radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .cv-summary-card h2 {
+    margin-top: 0;
+  }
+
+  .cv-kv {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.25rem 1rem;
+  }
+
+  .cv-kv dt {
+    font-weight: 600;
+  }
+
+  .cv-kv dd {
+    /* Grid items default to min-width:auto (not 0), so a long unbroken
+       value (e.g. a file_pattern path) would otherwise refuse to shrink
+       and blow out the card's width instead of wrapping. */
+    min-width: 0;
+    margin: 0;
+  }
+
+  .cv-table-wrap {
+    /* Hard fallback for whatever the wrapping rules above don't catch
+       (e.g. several only-moderately-long columns whose sum still exceeds
+       the card) — the table scrolls within its own card instead of the
+       card (or the page) growing past its bounds. */
+    overflow-x: auto;
+    margin-top: 0.5rem;
+  }
+
+  table.cv-table {
+    width: 100%;
+    min-width: 520px;
+    border-collapse: collapse;
+  }
+
+  table.cv-table th,
+  table.cv-table td {
+    text-align: left;
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--brand-border);
+    font-size: 0.9rem;
+  }
+
+  /* Short, fixed-vocabulary columns (units, dtype) shouldn't wrap at all —
+     without this, auto table layout starves them of space in favor of the
+     long Name/Standard-name/Raw-column(s) columns and wraps even words
+     like "numeric" mid-word. Long values still safely fall back to the
+     overflow-x:auto wrapper (.cv-table-wrap) if a units string is ever
+     unusually long. */
+  table.cv-table .cv-nowrap {
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  const textarea = document.getElementById("config-json");
+  const lineNumbers = document.getElementById("line-numbers");
+  const result = document.getElementById("result");
+
+  function updateLineNumbers() {
+    const count = textarea.value.split("\n").length;
+    const digits = [];
+    for (let i = 1; i <= count; i++) digits.push(i);
+    lineNumbers.textContent = digits.join("\n");
+  }
+
+  textarea.addEventListener("input", updateLineNumbers);
+  textarea.addEventListener("scroll", () => {
+    lineNumbers.scrollTop = textarea.scrollTop;
+  });
+  updateLineNumbers();
+
+  function jumpToLine(line) {
+    const lines = textarea.value.split("\n");
+    let offset = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) {
+      offset += lines[i].length + 1;
+    }
+    const lineText = lines[line - 1] || "";
+    textarea.focus();
+    // selecting the line's own (trimmed) text, not the leading whitespace,
+    // so what gets highlighted is the meaningful part of the line
+    const leading = lineText.length - lineText.trimStart().length;
+    textarea.setSelectionRange(offset + leading, offset + lineText.length);
+  }
+
+  document.getElementById("validate-btn").addEventListener("click", async () => {
+    result.innerHTML = "<p>Validating…</p>";
+    let response;
+    try {
+      response = await fetch("/config-validator/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: textarea.value,
+      });
+    } catch (err) {
+      result.innerHTML = `<div class="cv-errors"><h2>Request failed</h2><p>${escapeHtml(String(err))}</p></div>`;
+      return;
+    }
+    const data = await response.json();
+    result.innerHTML = data.valid ? renderSummary(data.summary) : renderErrors(data.errors);
+    result.querySelectorAll("li[data-line]").forEach((el) => {
+      el.addEventListener("click", () => jumpToLine(parseInt(el.dataset.line, 10)));
+    });
+  });
+
+  function renderErrors(errors) {
+    const items = errors
+      .map((e) => {
+        const lineAttr = e.line ? ` data-line="${e.line}"` : "";
+        const lineLabel = e.line ? `Line ${e.line}` : "—";
+        const loc = e.loc ? `<span class="cv-error-loc">${escapeHtml(e.loc)}</span> — ` : "";
+        return `<li${lineAttr}><span class="cv-error-line">${lineLabel}</span>${loc}${escapeHtml(e.msg)}</li>`;
+      })
+      .join("");
+    return `<div class="cv-errors"><h2>${errors.length} problem${errors.length === 1 ? "" : "s"} found</h2><ul>${items}</ul></div>`;
+  }
+
+  function renderSummary(summary) {
+    const kv = (pairs) =>
+      `<dl class="cv-kv">${pairs
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`)
+        .join("")}</dl>`;
+
+    const overview = kv([
+      ["id", summary.id],
+      ["title", summary.title],
+      ["platform_type", summary.platform_type],
+      ["access", summary.access],
+      ["source_type", summary.source_type],
+    ]);
+
+    const variableRows = summary.variables
+      .map(
+        (v) => `<tr>
+          <td>${escapeHtml(v.name)}</td>
+          <td>${escapeHtml(v.standard_name || "")}</td>
+          <td class="cv-nowrap">${escapeHtml(v.units || "")}</td>
+          <td class="cv-nowrap">${escapeHtml(v.dtype)}</td>
+          <td>${escapeHtml(v.raw_names.join(", "))}</td>
+          <td>${v.extra_dimension ? escapeHtml(v.extra_dimension.map((d) => d.name).join(", ")) : ""}</td>
+        </tr>`
+      )
+      .join("");
+
+    const deploymentRows = summary.deployments
+      .map(
+        (d) => `<tr>
+          <td>${escapeHtml(d.start)}</td>
+          <td>${escapeHtml(d.end || "open")}</td>
+          <td>${d.lat !== null ? escapeHtml(`${d.lat}, ${d.lon}`) : ""}</td>
+          <td>${escapeHtml(d.elevation ?? "")}</td>
+          <td>${escapeHtml(d.platform_name || "")}</td>
+        </tr>`
+      )
+      .join("");
+
+    return `
+      <div class="cv-summary-card">
+        <h2>✓ Valid config</h2>
+        ${overview}
+      </div>
+      <div class="cv-summary-card">
+        <h2>Variables (${summary.variables.length})</h2>
+        <div class="cv-table-wrap">
+          <table class="cv-table">
+            <thead><tr><th>Name</th><th>Standard name</th><th class="cv-nowrap">Units</th><th class="cv-nowrap">Type</th><th>Raw column(s)</th><th>Extra dim(s)</th></tr></thead>
+            <tbody>${variableRows}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="cv-summary-card">
+        <h2>Deployments (${summary.deployments.length})</h2>
+        <div class="cv-table-wrap">
+          <table class="cv-table">
+            <thead><tr><th>Start</th><th>End</th><th>Lat, Lon</th><th>Elevation</th><th>Platform name</th></tr></thead>
+            <tbody>${deploymentRows}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="cv-summary-card">
+        <h2>Output</h2>
+        ${kv([
+          ["file_naming", summary.output.file_naming],
+          ["publish", summary.output.publish],
+        ])}
+      </div>
+      <div class="cv-summary-card">
+        <h2>Source config</h2>
+        ${kv(Object.entries(summary.source_config))}
+      </div>
+    `;
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
+    return div.innerHTML;
+  }
+</script>
+{% endblock %}
