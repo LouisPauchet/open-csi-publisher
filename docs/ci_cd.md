@@ -11,9 +11,13 @@ Runs are cancelled/superseded by a newer push to the same branch/PR (`concurrenc
 
 - **`lint`** — `uv run ruff check .`. Matches the ruleset already configured in
   `pyproject.toml`'s `[tool.ruff]`; nothing CI-specific.
-- **`test`** — `uv run pytest -q`. No real station data (`mount/`) exists in CI —
-  `mount`-dependent tests self-skip via the `requires_mount` marker (`tests/conftest.py`),
-  same as on any contributor's machine without the real mount present.
+- **`test`** — `uv run pytest -q --cov=open_csi_publisher --cov-report=xml --cov-report=term-missing`.
+  No real station data (`mount/`) exists in CI — `mount`-dependent tests self-skip via the
+  `requires_mount` marker (`tests/conftest.py`), same as on any contributor's machine
+  without the real mount present, so CI's coverage numbers run lower than a local run
+  against the real `mount/` data. The resulting `coverage.xml` is uploaded via
+  `codecov/codecov-action` — informational only (`fail_ci_if_error: false`), so it never
+  blocks a merge, including before a `CODECOV_TOKEN` repo secret is configured.
 - **`docker`** — `docker build` only, gated on `lint`/`test` passing, **never pushes**.
   Catches a broken `Dockerfile` before merge without publishing anything untested.
 
@@ -72,4 +76,10 @@ configuration is needed for a first-party (non-fork) repo.
 uv run ruff check .
 uv run pytest -q
 docker build -t open-csi-publisher:local .
+```
+
+To see coverage the way CI does:
+
+```sh
+uv run pytest -q --cov=open_csi_publisher --cov-report=term-missing
 ```
