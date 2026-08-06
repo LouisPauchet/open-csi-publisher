@@ -3,7 +3,7 @@
 {% block title %}Datasets — {{ branding.site_name }}{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="{{ root_path }}/static/vendor/leaflet/leaflet.css">
 
 <div class="portal-layout">
   <div class="portal-left">
@@ -77,8 +77,8 @@
   </div>
 </div>
 
-<script src="/static/vendor/leaflet/leaflet.js"></script>
-<script src="/static/js/filter.js" defer></script>
-<script src="/static/js/map.js" defer></script>
-<script src="/static/js/dataset_panel.js" defer></script>
+<script src="{{ root_path }}/static/vendor/leaflet/leaflet.js"></script>
+<script src="{{ root_path }}/static/js/filter.js" defer></script>
+<script src="{{ root_path }}/static/js/map.js" defer></script>
+<script src="{{ root_path }}/static/js/dataset_panel.js" defer></script>
 {% endblock %}

@@ -5,7 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ branding.site_name }}{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/site.css">
+  <link rel="stylesheet" href="{{ root_path }}/static/css/site.css">
+  <script>window.APP_ROOT_PATH = {{ root_path | tojson }};</script>
   <style>
     :root {
       --brand-primary: {{ branding.color_primary }};
@@ -25,7 +26,7 @@
 <body>
   <header class="site-header">
     <div class="site-header-inner">
-      <a class="site-title" href="/">
+      <a class="site-title" href="{{ root_path }}/">
         {% if branding.logo_url %}<img class="site-logo" src="{{ branding.logo_url }}" alt="{{ branding.site_name }}">{%
         endif %}
         <span>{{ branding.site_name }}</span>
@@ -34,9 +35,9 @@
       <div class="site-header-auth">
         {% if user %}
         <span class="site-header-user">{{ user.email or user.subject }}</span>
-        <a class="site-header-logout" href="/auth/logout">Log out</a>
+        <a class="site-header-logout" href="{{ root_path }}/auth/logout">Log out</a>
         {% else %}
-        <a class="site-header-login" href="/auth/login">Log in</a>
+        <a class="site-header-login" href="{{ root_path }}/auth/login">Log in</a>
         {% endif %}
       </div>
       {% endif %}

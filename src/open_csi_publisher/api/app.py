@@ -29,6 +29,18 @@ _OIDC_FIELDS = ("oidc_issuer", "oidc_client_id", "oidc_client_secret", "session_
 
 def create_app() -> FastAPI:
     branding = get_branding()
+    # Deliberately NOT FastAPI(root_path=...): that forces scope["root_path"]
+    # on every request, which Starlette's Mount routing (StaticFiles /static,
+    # the /opendap sub-app) accumulates across nesting levels and uses to
+    # strip a prefix from the incoming path (get_route_path). That only works
+    # when a proxy forwards the *full, unstripped* path and tells the app
+    # out-of-band how much is prefix — not the far more common "proxy strips
+    # the prefix before forwarding" setup this app targets, where the
+    # incoming path never had the prefix to begin with. Under that mismatch,
+    # nested Mounts 404 (confirmed against a minimal Starlette repro).
+    # Settings.root_path is instead applied manually, only to outbound URLs
+    # this app hands back to the browser (templates/JS/redirects/JSON) — see
+    # settings.py's root_path docstring.
     app = FastAPI(title=branding.site_name)
 
     engine = get_engine(settings.database_url)
@@ -60,6 +72,12 @@ def _configure_oidc_session(app: FastAPI) -> None:
     disabled, identical to OIDC being entirely unconfigured (settings.oidc_issuer
     docstring / Settings.oidc_configured)."""
     if settings.oidc_configured:
+        # path left at Starlette's own default ("/"), not settings.root_path:
+        # this app's own routes are never actually served at the prefixed
+        # path (see create_app()'s docstring — the proxy strips it before
+        # forwarding), so a cookie scoped to ROOT_PATH would never round-trip
+        # back to those routes. The browser still only ever sees this cookie
+        # under the proxy's /ROOT_PATH origin either way.
         app.add_middleware(SessionMiddleware, secret_key=settings.session_secret_key)
     elif settings.oidc_issuer is not None:
         missing = [f for f in _OIDC_FIELDS if not getattr(settings, f)]
