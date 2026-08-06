@@ -54,6 +54,26 @@ def test_publish_cache_dir_default(monkeypatch):
     assert Settings().publish_cache_dir == "local/publish_cache"
 
 
+def test_root_path_defaults_to_empty_string(monkeypatch):
+    monkeypatch.delenv("ROOT_PATH", raising=False)
+    assert Settings().root_path == ""
+
+
+def test_root_path_overridable_via_env_var(monkeypatch):
+    monkeypatch.setenv("ROOT_PATH", "/csi-publisher")
+    assert Settings().root_path == "/csi-publisher"
+
+
+def test_root_path_strips_trailing_slash(monkeypatch):
+    monkeypatch.setenv("ROOT_PATH", "/csi-publisher/")
+    assert Settings().root_path == "/csi-publisher"
+
+
+def test_root_path_of_just_a_slash_normalizes_to_empty_string(monkeypatch):
+    monkeypatch.setenv("ROOT_PATH", "/")
+    assert Settings().root_path == ""
+
+
 def _clear_oidc_env(monkeypatch):
     for var in ("OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "SESSION_SECRET_KEY"):
         monkeypatch.delenv(var, raising=False)
