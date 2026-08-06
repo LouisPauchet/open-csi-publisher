@@ -42,6 +42,7 @@ uv run --env-file local/.env uvicorn open_csi_publisher.api.app:create_app --fac
 | `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `SESSION_SECRET_KEY` | unset | Inert placeholders for the future Entra ID/OIDC integration. While `OIDC_ISSUER` is unset (the default), every caller is anonymous and restricted datasets are always hidden — there is currently no way to log in. |
 | `PUBLISH_API_KEYS_RAW` | `""` (empty — no keys, endpoint always 401s) | Comma-separated static API keys for the publish endpoint. See [publish_endpoint.md](publish_endpoint.md). |
 | `PUBLISH_CACHE_DIR` | `local/publish_cache` | Where generated monthly NetCDF files are cached. |
+| `ROOT_PATH` | `""` | Set when this app is deployed behind a reverse proxy on a subpath (e.g. `/csi-publisher` for `https://host/csi-publisher/`). Prefixes every outbound URL this app hands back to the browser (static assets, nav links, OIDC redirects, the publish endpoint's `download_url`). The proxy must strip this prefix before forwarding to the app — see [docker.md](docker.md#subpath-deployment-root_path). Trailing slashes are stripped automatically. |
 | `{PREFIX}_BASE_URL` plus either `{PREFIX}_API_KEY` or `{PREFIX}_USERNAME`/`{PREFIX}_PASSWORD` | unset | Credentials for one ThingsBoard tenant, where `{PREFIX}` is that `sources.yaml` entry's `credentials_env_prefix` (defaults to `THINGSBOARD` if the entry doesn't set one — so a single-tenant setup just needs `THINGSBOARD_BASE_URL` plus `THINGSBOARD_API_KEY` or `THINGSBOARD_USERNAME`/`THINGSBOARD_PASSWORD`). If both an API key and a username/password pair are set for the same prefix, the API key takes precedence. Multiple `thingsboard` source entries, each with a distinct prefix, connect to multiple independent tenants. Until `{PREFIX}_BASE_URL` and one full credential option are set for a given prefix, no `thingsboard` source using that prefix can be constructed; a deployment with no `thingsboard` entry in `sources.yaml` is unaffected. See [adding_a_dataset.md](adding_a_dataset.md#adding-a-thingsboard-backed-dataset). |
 | `THINGSBOARD_DISCOVERY_INTERVAL_SECONDS` | `3600` | How often `list_dataset_ids()` re-probes every tenant device for the `open-csi-publisher-config` attribute (an in-process TTL cache) instead of re-scanning on every request. Shared across every ThingsBoard tenant/prefix, not per-instance. |
 
@@ -86,3 +87,14 @@ After any change to `site.css`'s layout rules (`.portal-layout`, `#dataset-panel
     title, description, date-range inputs, and download links above/below it stay put.
 14. Resize the window below ~900px wide (or use a mobile viewport) — the layout falls
     back to a normal scrolling page instead of the fixed-height two-column layout.
+
+After any change to a template, `static/js/map.js`, or `static/js/dataset_panel.js` that
+touches a hardcoded URL, also check with a subpath configured (no automated test exercises
+the JS actually running in a browser — see [docker.md](docker.md#subpath-deployment-root_path)):
+
+15. `ROOT_PATH=/csi-publisher uv run uvicorn open_csi_publisher.api.app:create_app --factory --reload`,
+    then open `http://127.0.0.1:8000/` directly (routes are always served un-prefixed —
+    `ROOT_PATH` only changes what links/URLs are *written into*, not where the app itself
+    listens) and confirm static assets load, and every link/button in the dataset panel
+    (download NetCDF/CSV, OPeNDAP DDS/copy URL, metadata/deployments JSON) is rewritten with
+    the `/csi-publisher` prefix in its `href`.

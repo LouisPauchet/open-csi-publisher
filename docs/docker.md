@@ -63,6 +63,31 @@ running the already-published image (e.g. pulled from GHCR):
 DATABASE_URL: postgresql+psycopg://user:password@postgres:5432/open_csi_publisher
 ```
 
+## Subpath deployment (`ROOT_PATH`)
+
+Set `ROOT_PATH` (e.g. `/csi-publisher`) when this app should live at
+`https://host/csi-publisher/` instead of the domain root. It prefixes every outbound URL
+this app hands back to the browser — static assets, nav links, the OIDC redirect_uri, and
+the publish endpoint's `download_url` (see [running_locally.md](running_locally.md)'s
+settings table).
+
+**The reverse proxy must strip the prefix** before forwarding to the container — this app's
+own routes are always served un-prefixed (`/`, `/static/...`, `/opendap/...`), and `ROOT_PATH`
+only controls what the app writes into links, not how it routes requests. A minimal nginx
+example:
+
+```nginx
+location /csi-publisher/ {
+    proxy_pass http://open-csi-publisher:8000/;
+    proxy_set_header Host $host;
+}
+```
+
+(the trailing `/` on both `location` and `proxy_pass` is what makes nginx strip the prefix).
+Then set `ROOT_PATH: "/csi-publisher"` in `docker-compose.yml`'s `environment:` block to
+match. Left unset (the default), the app behaves exactly as if mounted at the domain root —
+no proxy required.
+
 ## Manual verification
 
 ```sh
