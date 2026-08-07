@@ -22,6 +22,11 @@ from open_csi_publisher.settings import settings
 from open_csi_publisher.state import repository
 
 
+class DatasetTooLargeError(ValueError):
+    """Raised when a build's selected files exceed settings.max_dataset_build_bytes
+    (LoggerNet only — see _check_size_cap's docstring)."""
+
+
 def build_dataset(
     dataset_id: str,
     start: datetime | None = None,
@@ -31,12 +36,20 @@ def build_dataset(
     session: Session,
     config_provider: ConfigProvider,
     data_provider: DataProvider,
+    enforce_size_cap: bool = True,
 ) -> xr.Dataset:
     """The one function every consumer (REST, OPeNDAP, downloads, the publish
     endpoint) calls (implementation_plan.md §7): resolves the current config
     version, lazily refreshes the file index, reads only the raw columns and
     files actually needed, maps them to canonical variable names, resolves
     fixed/mobile deployment metadata, and attaches CF-ish global attributes.
+
+    `enforce_size_cap=False` (api/routers/publish.py's get_publish_month() is
+    the one caller that passes this) skips the size-cap check below — the
+    publish endpoint is already self-bounded to one calendar month per call
+    and is a trusted, API-key-gated server-to-server path, so the cap that
+    protects ad hoc REST requests from an unbounded "give me everything"
+    would only ever get in its way.
     """
     start = _naive_utc(start)
     end = _naive_utc(end)
@@ -48,6 +61,8 @@ def build_dataset(
 
     index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
     selected = _select_files_covering(index_entries, start, end)
+    if enforce_size_cap:
+        _check_size_cap(dataset_id, config, selected)
 
     raw_columns = _resolve_raw_columns_needed(config.variables, variables)
     raw = run_with_timeout(
@@ -122,16 +137,17 @@ def _geospatial_summary(
     config: DatasetConfig, index_entries: list[FileRecord], data_provider: DataProvider
 ) -> dict[str, Any]:
     if config.platform_type == "fixed":
-        lats = [d.lat for d in config.deployments if d.lat is not None]
-        lons = [d.lon for d in config.deployments if d.lon is not None]
-        attrs: dict[str, Any] = {}
-        if lats:
-            attrs["geospatial_lat_min"] = min(lats)
-            attrs["geospatial_lat_max"] = max(lats)
-        if lons:
-            attrs["geospatial_lon_min"] = min(lons)
-            attrs["geospatial_lon_max"] = max(lons)
-        return attrs
+        # DatasetConfig requires at least one deployment, and a fixed
+        # platform's deployments always have lat/lon set (config_schema.py's
+        # own validators) — no defensive empty/None handling needed here.
+        lats = [d.lat for d in config.deployments]
+        lons = [d.lon for d in config.deployments]
+        return {
+            "geospatial_lat_min": min(lats),
+            "geospatial_lat_max": max(lats),
+            "geospatial_lon_min": min(lons),
+            "geospatial_lon_max": max(lons),
+        }
 
     live_files = [e for e in index_entries if e.file_role == "live"]
     if not live_files:
@@ -150,6 +166,40 @@ def _geospatial_summary(
     )
     mapped = apply_variable_spec(raw, config.variables)
     return _geospatial_bounds(mapped)
+
+
+def _check_size_cap(dataset_id: str, config: DatasetConfig, selected: list[FileRecord]) -> None:
+    """Only meaningful for source_type == "loggernet": FileRecord.size there is
+    a genuine on-disk byte count and many files can be concatenated together
+    for one build (some deployed stations span hundreds of files and 100+ GB
+    total). generic_csv is always exactly one file, and thingsboard's `size`
+    is a change-token, not a byte count — neither is checked here.
+
+    Runs against metadata the file index already has (no extra I/O), before
+    the actual parse/concat — a request that would blow the cap fails
+    immediately with an actionable message instead of after minutes of
+    parsing (or, without Fix B's timeout, never returning at all).
+    """
+    if config.source_type != "loggernet":
+        return
+    total_bytes = sum(entry.size for entry in selected)
+    limit = settings.max_dataset_build_bytes
+    if total_bytes <= limit:
+        return
+    raise DatasetTooLargeError(
+        f"dataset {dataset_id!r}: selected files total {_human_bytes(total_bytes)}, "
+        f"which exceeds the {_human_bytes(limit)} limit — narrow the request with "
+        "start/end query parameters (e.g. one month at a time)"
+    )
+
+
+def _human_bytes(n: int) -> str:
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024:
+            return f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} PB"
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:

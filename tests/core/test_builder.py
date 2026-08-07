@@ -235,3 +235,100 @@ def test_build_dataset_raises_timeout_error_when_read_range_hangs(db_session, co
             data_provider=HangingReadRangeProvider(),
         )
     assert "isfjord_radio_solar_park_measurements3" in str(exc_info.value)
+
+
+# --- size cap (DatasetTooLargeError) ----------------------------------------------
+
+
+class _StubDataProvider:
+    """A minimal DataProvider whose get_file_index() returns a scripted set of
+    FileRecords with a controlled `size` — enough to drive build_dataset()'s
+    size-cap check without needing real (potentially huge) files. read_range()
+    only needs to succeed when the cap doesn't reject the build first."""
+
+    def __init__(self, files):
+        self._files = files
+
+    def get_file_index(self, source_config, previous=()):
+        return self._files
+
+    def read_range(self, source_config, files, start, end, variables=None):
+        import xarray as xr
+
+        return xr.Dataset(coords={"time": []})
+
+
+def _oversized_loggernet_files():
+    from open_csi_publisher.core.models import FileRecord
+
+    return [
+        FileRecord(
+            file_name="huge.dat",
+            file_role="live",
+            size=10 * 1024**3,  # 10 GB
+            time_start=datetime(2020, 1, 1),
+            time_end=datetime(2020, 1, 2),
+            variables=["air_pressure"],
+            status="active",
+        )
+    ]
+
+
+def test_build_dataset_raises_too_large_error_when_selected_files_exceed_cap(
+    db_session, config_provider, monkeypatch
+):
+    from open_csi_publisher import settings as settings_module
+    from open_csi_publisher.core.builder import DatasetTooLargeError
+
+    monkeypatch.setattr(settings_module.settings, "max_dataset_build_bytes", 1024**3)  # 1 GB
+
+    with pytest.raises(DatasetTooLargeError) as exc_info:
+        build_dataset(
+            "isfjord_radio_solar_park_measurements3",
+            session=db_session,
+            config_provider=config_provider,
+            data_provider=_StubDataProvider(_oversized_loggernet_files()),
+        )
+    message = str(exc_info.value)
+    assert "isfjord_radio_solar_park_measurements3" in message
+    assert "start" in message and "end" in message  # points at the actual fix
+
+
+def test_build_dataset_enforce_size_cap_false_bypasses_the_check(db_session, config_provider, monkeypatch):
+    from open_csi_publisher import settings as settings_module
+
+    monkeypatch.setattr(settings_module.settings, "max_dataset_build_bytes", 1024**3)  # 1 GB
+
+    ds = build_dataset(
+        "isfjord_radio_solar_park_measurements3",
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=_StubDataProvider(_oversized_loggernet_files()),
+        enforce_size_cap=False,
+    )
+    assert ds is not None
+
+
+def test_human_bytes_formats_each_unit_band():
+    from open_csi_publisher.core.builder import _human_bytes
+
+    assert _human_bytes(500) == "500.0 B"
+    assert _human_bytes(2 * 1024) == "2.0 KB"
+    assert _human_bytes(3 * 1024**2) == "3.0 MB"
+    assert _human_bytes(4 * 1024**3) == "4.0 GB"
+    assert _human_bytes(5 * 1024**4) == "5.0 TB"
+    assert _human_bytes(6 * 1024**5) == "6.0 PB"
+
+
+@requires_mount
+def test_build_dataset_under_the_cap_succeeds(db_session, config_provider, data_provider, monkeypatch):
+    from open_csi_publisher import settings as settings_module
+
+    monkeypatch.setattr(settings_module.settings, "max_dataset_build_bytes", 1024**3)  # 1 GB, real files are tiny
+    ds = build_dataset(
+        "isfjord_radio_solar_park_measurements3",
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=data_provider,
+    )
+    assert ds.sizes["time"] > 0
