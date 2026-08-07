@@ -4,9 +4,18 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Sequence
 
+import pandas as pd
 import xarray as xr
 
 from open_csi_publisher.core.models import FileRecord
+
+
+def empty_dataset() -> xr.Dataset:
+    """A valid, zero-length dataset for "no data yet" cases (implementation_plan.md
+    real-data findings): a brand-new station whose file/device exists but hasn't
+    produced any readings yet. Shared by every DataProvider implementation rather
+    than each defining its own, so they degrade identically."""
+    return xr.Dataset(coords={"time": pd.DatetimeIndex([], name="time")})
 
 
 class ConfigProvider(ABC):

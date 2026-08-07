@@ -5,9 +5,11 @@ from datetime import datetime
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from open_csi_publisher.core.config_schema import LoggerNetSourceConfig
 from open_csi_publisher.providers.data.loggernet import provider as provider_module
+from open_csi_publisher.providers.data.loggernet.fileset import AmbiguousFileSetError
 from open_csi_publisher.providers.data.loggernet.provider import LoggerNetDataProvider
 
 from ..conftest import requires_mount
@@ -139,6 +141,48 @@ def test_get_file_index_ignores_non_toa5_files_matching_the_glob(tmp_path):
     records = provider.get_file_index(config)
 
     assert [r.file_name for r in records] == [valid.name]
+
+
+# --- get_file_index: no live file yet vs. genuinely ambiguous --------------------
+
+_MINIMAL_TOA5 = (
+    '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+    '"TIMESTAMP","RECORD","AirT_C"\n'
+    '"TS","RN","Deg C"\n'
+    '"","Smp","Avg"\n'
+    '"2026-01-01 00:00:00",0,1.0\n'
+)
+
+
+def test_get_file_index_no_live_file_yet_returns_empty_list(tmp_path):
+    # station configured, but the live file hasn't synced to the mount yet —
+    # only the historical archive exists so far
+    (tmp_path / "Station_Table_Historical.dat").write_text(_MINIMAL_TOA5, encoding="utf-8")
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+
+    assert provider.get_file_index(config) == []
+
+
+def test_get_file_index_no_live_file_yet_logs_a_warning(tmp_path, caplog):
+    (tmp_path / "Station_Table_Historical.dat").write_text(_MINIMAL_TOA5, encoding="utf-8")
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+
+    provider.get_file_index(config)
+    assert "no live file" in caplog.text.lower()
+
+
+def test_get_file_index_multiple_live_candidates_still_raises(tmp_path):
+    # a genuine ambiguous-config problem (>1 live file) must stay loud, not
+    # silently degrade like the zero-live-file "no data yet" case above
+    for name in ("Station_TableA.dat", "Station_TableB.dat"):
+        (tmp_path / name).write_text(_MINIMAL_TOA5, encoding="utf-8")
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table*.dat")
+
+    with pytest.raises(AmbiguousFileSetError):
+        provider.get_file_index(config)
 
 
 @requires_mount
@@ -420,6 +464,13 @@ def test_read_range_without_a_real_cache_still_pushes_usecols_down(tmp_path):
     ) as spy:
         provider.read_range(config, files=records, start=None, end=None, variables=["AirT_C"])
         assert spy.call_args.kwargs.get("usecols") == ["AirT_C"]
+
+
+def test_read_range_empty_files_returns_empty_dataset(tmp_path):
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+    result = provider.read_range(config, files=[], start=None, end=None)
+    assert result.sizes.get("time", 0) == 0
 
 
 def test_read_range_cache_enabled_false_bypasses_caching_entirely(tmp_path):

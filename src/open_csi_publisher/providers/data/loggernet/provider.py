@@ -12,8 +12,13 @@ from loguru import logger
 
 from open_csi_publisher.core.config_schema import LoggerNetSourceConfig
 from open_csi_publisher.core.models import FileRecord
-from open_csi_publisher.providers.base import DataProvider
-from open_csi_publisher.providers.data.loggernet.fileset import classify_files, reconcile_fileset
+from open_csi_publisher.providers.base import DataProvider, empty_dataset
+from open_csi_publisher.providers.data.loggernet.fileset import (
+    AmbiguousFileSetError,
+    classify_files,
+    count_live_candidates,
+    reconcile_fileset,
+)
 from open_csi_publisher.providers.data.loggernet.toa5 import (
     ParsedToa5File,
     Toa5FormatError,
@@ -33,7 +38,16 @@ class LoggerNetDataProvider(DataProvider):
         self, source_config: LoggerNetSourceConfig, previous: Sequence[FileRecord] = ()
     ) -> list[FileRecord]:
         matched = self.matched_files(source_config)
-        classified = classify_files(matched, historical_suffix=source_config.historical_suffix)
+        try:
+            classified = classify_files(matched, historical_suffix=source_config.historical_suffix)
+        except AmbiguousFileSetError:
+            if count_live_candidates(matched, historical_suffix=source_config.historical_suffix) == 0:
+                logger.warning(
+                    "no live file yet for {} — treating as no data available",
+                    source_config.file_pattern,
+                )
+                return []
+            raise  # >1 live file: a genuine misconfiguration, not "no data yet"
         previous_by_name = {r.file_name: r for r in previous}
 
         records: list[FileRecord] = []
@@ -77,6 +91,9 @@ class LoggerNetDataProvider(DataProvider):
         end: datetime | None,
         variables: list[str] | None = None,
     ) -> xr.Dataset:
+        if not files:
+            return empty_dataset()
+
         archived_parsed = [
             self._parse_selected(f, source_config, variables)
             for f in files

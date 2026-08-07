@@ -49,6 +49,16 @@ def _is_archived(path: Path, historical_suffix: str) -> bool:
     return any(suffix.startswith(".backup") for suffix in path.suffixes)
 
 
+def count_live_candidates(paths: Sequence[Path], *, historical_suffix: str = "_Historical") -> int:
+    """How many of `paths` classify_files() would treat as `live` — lets a caller
+    distinguish classify_files()'s two different AmbiguousFileSetError causes:
+    zero live files (a station configured but not yet synced/created — "no data
+    yet") vs. more than one (a genuine misconfiguration) without changing
+    classify_files()'s own raise-on-ambiguous contract.
+    """
+    return sum(1 for p in paths if not _is_archived(p, historical_suffix))
+
+
 def reconcile_fileset(
     *, archived: Sequence[ParsedToa5File], live: ParsedToa5File | None
 ) -> xr.Dataset:

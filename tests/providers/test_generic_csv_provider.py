@@ -98,6 +98,12 @@ def test_read_range_time_window_slices(data_root):
     assert ds.sizes["time"] == 3
 
 
+def test_read_range_empty_files_returns_empty_dataset(data_root):
+    provider = GenericCsvDataProvider(data_root)
+    ds = provider.read_range(SOURCE_CONFIG, files=[], start=None, end=None)
+    assert ds.sizes.get("time", 0) == 0
+
+
 def test_read_range_variables_restricts_columns(data_root):
     provider = GenericCsvDataProvider(data_root)
     records = provider.get_file_index(SOURCE_CONFIG)
