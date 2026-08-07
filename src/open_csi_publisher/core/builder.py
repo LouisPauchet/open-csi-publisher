@@ -14,9 +14,11 @@ from open_csi_publisher.core.config_schema import DatasetConfig, VariableSpec
 from open_csi_publisher.core.config_versioning import get_versioned_config
 from open_csi_publisher.core.deployment import apply_deployment_metadata
 from open_csi_publisher.core.models import FileRecord
+from open_csi_publisher.core.timeouts import run_with_timeout
 from open_csi_publisher.core.variable_mapping import apply_variable_spec
 from open_csi_publisher.index.service import refresh_and_get_index
 from open_csi_publisher.providers.base import ConfigProvider, DataProvider
+from open_csi_publisher.settings import settings
 from open_csi_publisher.state import repository
 
 
@@ -48,8 +50,15 @@ def build_dataset(
     selected = _select_files_covering(index_entries, start, end)
 
     raw_columns = _resolve_raw_columns_needed(config.variables, variables)
-    raw = data_provider.read_range(
-        config.source_config, files=selected, start=start, end=end, variables=raw_columns
+    raw = run_with_timeout(
+        data_provider.read_range,
+        config.source_config,
+        files=selected,
+        start=start,
+        end=end,
+        variables=raw_columns,
+        timeout=settings.dataset_build_timeout_seconds,
+        description=f"reading data for dataset {dataset_id!r}",
     )
 
     mapped = apply_variable_spec(raw, config.variables)

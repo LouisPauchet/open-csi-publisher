@@ -191,3 +191,47 @@ def test_build_dataset_unknown_id_raises(db_session, config_provider, data_provi
             config_provider=config_provider,
             data_provider=data_provider,
         )
+
+
+def test_build_dataset_raises_timeout_error_when_read_range_hangs(db_session, config_provider, monkeypatch):
+    import time
+    from datetime import datetime
+
+    from open_csi_publisher import settings as settings_module
+    from open_csi_publisher.core.models import FileRecord
+    from open_csi_publisher.core.timeouts import DatasetBuildTimeoutError
+    from open_csi_publisher.providers.base import DataProvider
+
+    monkeypatch.setattr(settings_module.settings, "dataset_build_timeout_seconds", 0.05)
+
+    class HangingReadRangeProvider(DataProvider):
+        """get_file_index() is deterministic/instant, so this test is isolated
+        to read_range()'s own timeout wrapping — not a race against real I/O
+        timing (which index refresh's timeout, covered separately by
+        test_file_index_refresh.py, already depends on)."""
+
+        def get_file_index(self, source_config, previous=()):
+            return [
+                FileRecord(
+                    file_name="fake.dat",
+                    file_role="live",
+                    size=10,
+                    time_start=datetime(2020, 1, 1),
+                    time_end=datetime(2020, 1, 2),
+                    variables=["air_pressure"],
+                    status="active",
+                )
+            ]
+
+        def read_range(self, *args, **kwargs):
+            time.sleep(5)
+            raise AssertionError("should have timed out before returning")
+
+    with pytest.raises(DatasetBuildTimeoutError) as exc_info:
+        build_dataset(
+            "isfjord_radio_solar_park_measurements3",
+            session=db_session,
+            config_provider=config_provider,
+            data_provider=HangingReadRangeProvider(),
+        )
+    assert "isfjord_radio_solar_park_measurements3" in str(exc_info.value)
