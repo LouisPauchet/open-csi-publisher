@@ -187,13 +187,13 @@ def _check_size_cap(dataset_id: str, config: DatasetConfig, selected: list[FileR
     if total_bytes <= limit:
         return
     raise DatasetTooLargeError(
-        f"dataset {dataset_id!r}: selected files total {_human_bytes(total_bytes)}, "
-        f"which exceeds the {_human_bytes(limit)} limit — narrow the request with "
+        f"dataset {dataset_id!r}: selected files total {human_bytes(total_bytes)}, "
+        f"which exceeds the {human_bytes(limit)} limit — narrow the request with "
         "start/end query parameters (e.g. one month at a time)"
     )
 
 
-def _human_bytes(n: int) -> str:
+def human_bytes(n: int) -> str:
     value = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if value < 1024:

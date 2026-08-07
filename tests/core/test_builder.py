@@ -309,15 +309,15 @@ def test_build_dataset_enforce_size_cap_false_bypasses_the_check(db_session, con
     assert ds is not None
 
 
-def test_human_bytes_formats_each_unit_band():
-    from open_csi_publisher.core.builder import _human_bytes
+def testhuman_bytes_formats_each_unit_band():
+    from open_csi_publisher.core.builder import human_bytes
 
-    assert _human_bytes(500) == "500.0 B"
-    assert _human_bytes(2 * 1024) == "2.0 KB"
-    assert _human_bytes(3 * 1024**2) == "3.0 MB"
-    assert _human_bytes(4 * 1024**3) == "4.0 GB"
-    assert _human_bytes(5 * 1024**4) == "5.0 TB"
-    assert _human_bytes(6 * 1024**5) == "6.0 PB"
+    assert human_bytes(500) == "500.0 B"
+    assert human_bytes(2 * 1024) == "2.0 KB"
+    assert human_bytes(3 * 1024**2) == "3.0 MB"
+    assert human_bytes(4 * 1024**3) == "4.0 GB"
+    assert human_bytes(5 * 1024**4) == "5.0 TB"
+    assert human_bytes(6 * 1024**5) == "6.0 PB"
 
 
 @requires_mount
