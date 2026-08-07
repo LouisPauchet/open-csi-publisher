@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +19,8 @@ from open_csi_publisher.api.routers import (
     pages,
     publish,
 )
+from open_csi_publisher.core.builder import DatasetTooLargeError
+from open_csi_publisher.core.timeouts import DatasetBuildTimeoutError
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.db import get_engine, run_migrations
 from open_csi_publisher.api.deps import get_branding
@@ -42,6 +45,7 @@ def create_app() -> FastAPI:
     # this app hands back to the browser (templates/JS/redirects/JSON) — see
     # settings.py's root_path docstring.
     app = FastAPI(title=branding.site_name)
+    _register_exception_handlers(app)
 
     engine = get_engine(settings.database_url)
     run_migrations(settings.database_url, settings.base_dir)
@@ -63,6 +67,49 @@ def create_app() -> FastAPI:
     _configure_oidc_session(app)
 
     return app
+
+
+def _register_exception_handlers(app: FastAPI) -> None:
+    """Guarantees every unhandled exception is logged through loguru — a sink
+    confirmed to actually be configured — instead of relying on uvicorn's own
+    default exception logging, which for reasons not fully explained by
+    anything in this codebase has been observed to silently swallow a fast-
+    failing 500 in production (zero log output, not even uvicorn's usual
+    "Exception in ASGI application" traceback line). This makes that
+    "undebuggable" failure mode moot regardless of its underlying cause.
+
+    Starlette dispatches to the most-specific registered handler for a given
+    exception's __mro__, so the catch-all Exception handler below doesn't
+    interfere with FastAPI's own default HTTPException handling (used
+    throughout, e.g. api/deps.py's 404s).
+
+    A handler keyed on bare Exception (or 500) is installed on Starlette's
+    ServerErrorMiddleware, not ExceptionMiddleware like the two typed
+    handlers above — it builds the response the client actually receives,
+    but Starlette then re-raises the original exception anyway so that
+    whatever's running this ASGI app (uvicorn, or a test's
+    TestClient(raise_server_exceptions=True)) still sees it too. That's
+    intentional upstream behavior, not something to work around here.
+
+    Only covers the main app — the /opendap sub-app (api/opendap.py) is a
+    separately mounted ASGI app and isn't reached by handlers registered
+    here; it does its own local error handling instead.
+    """
+
+    @app.exception_handler(DatasetBuildTimeoutError)
+    async def _handle_build_timeout(request: Request, exc: DatasetBuildTimeoutError) -> JSONResponse:
+        logger.error("dataset build timed out: {}", exc)
+        return JSONResponse(status_code=504, content={"detail": str(exc)})
+
+    @app.exception_handler(DatasetTooLargeError)
+    async def _handle_too_large(request: Request, exc: DatasetTooLargeError) -> JSONResponse:
+        logger.warning("dataset build rejected (too large): {}", exc)
+        return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+    @app.exception_handler(Exception)
+    async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("unhandled exception handling {} {}", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "internal server error"})
 
 
 def _configure_oidc_session(app: FastAPI) -> None:

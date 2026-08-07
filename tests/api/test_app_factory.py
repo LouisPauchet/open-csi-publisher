@@ -130,6 +130,81 @@ def test_create_app_wires_opendap_mount_under_a_configured_root_path(tmp_path, m
     assert "air_temperature" in opendap.text
 
 
+# --- exception handlers (Fix A: undebuggable silent 500s) ------------------------
+
+
+def test_create_app_still_returns_404_via_default_http_exception_handling(tmp_path, monkeypatch):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    client = TestClient(create_app())
+    response = client.get("/datasets/does_not_exist")
+    assert response.status_code == 404
+
+
+def test_create_app_logs_and_returns_500_for_an_unhandled_exception(tmp_path, monkeypatch, caplog):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    app = create_app()
+
+    def _boom():
+        raise ValueError("deliberate failure for test_create_app_logs_and_returns_500")
+
+    app.add_api_route("/__test_unhandled_exception__", _boom, methods=["GET"])
+    # A bare Exception/500 handler is installed on Starlette's
+    # ServerErrorMiddleware, which builds the response for the client AND
+    # re-raises so the ASGI server's own logging still sees it too (Starlette's
+    # documented behavior) — raise_server_exceptions=False is what makes
+    # TestClient behave like a real deployed server here instead of
+    # surfacing that re-raise as a test failure. The typed handlers below
+    # (DatasetBuildTimeoutError, DatasetTooLargeError) don't need this: they
+    # go through ExceptionMiddleware, which doesn't re-raise.
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get("/__test_unhandled_exception__")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "internal server error"}
+    assert "deliberate failure for test_create_app_logs_and_returns_500" in caplog.text
+    assert "ValueError" in caplog.text  # loguru's logger.exception() includes the traceback
+
+
+def test_create_app_returns_504_for_a_dataset_build_timeout(tmp_path, monkeypatch):
+    from open_csi_publisher.core.timeouts import DatasetBuildTimeoutError
+
+    _use_throwaway_db(monkeypatch, tmp_path)
+    app = create_app()
+
+    def _timeout():
+        raise DatasetBuildTimeoutError("file index refresh for dataset 'x' exceeded 120.0s")
+
+    app.add_api_route("/__test_build_timeout__", _timeout, methods=["GET"])
+    client = TestClient(app)
+
+    response = client.get("/__test_build_timeout__")
+
+    assert response.status_code == 504
+    assert "exceeded 120.0s" in response.json()["detail"]
+
+
+def test_create_app_returns_413_for_a_too_large_dataset(tmp_path, monkeypatch):
+    from open_csi_publisher.core.builder import DatasetTooLargeError
+
+    _use_throwaway_db(monkeypatch, tmp_path)
+    app = create_app()
+
+    def _too_large():
+        raise DatasetTooLargeError(
+            "dataset 'x': selected files total 12.0 GB, which exceeds the 5.0 GB limit — "
+            "narrow the request with start/end query parameters"
+        )
+
+    app.add_api_route("/__test_too_large__", _too_large, methods=["GET"])
+    client = TestClient(app)
+
+    response = client.get("/__test_too_large__")
+
+    assert response.status_code == 413
+    assert "exceeds the 5.0 GB limit" in response.json()["detail"]
+
+
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):
     # a real deployment's sources/data paths are explicit config (absolute paths
     # via settings), not implicitly CWD-relative — set base_dir explicitly to
