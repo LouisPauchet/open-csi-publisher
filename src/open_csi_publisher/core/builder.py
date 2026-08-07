@@ -78,6 +78,80 @@ def build_dataset(
     return result
 
 
+def build_dataset_summary(
+    dataset_id: str,
+    *,
+    session: Session,
+    config_provider: ConfigProvider,
+    data_provider: DataProvider,
+) -> tuple[dict[str, Any], tuple[datetime, datetime] | None]:
+    """Cheap alternative to build_dataset() for callers that only need metadata,
+    not the actual data — api/routers/dataset_detail.py's GET /datasets/{id},
+    hit on every dataset page view. Some deployed stations span hundreds of
+    files and 100+ GB of history; building the whole dataset just to report a
+    time range and a few global attributes is exactly the unbounded-by-default
+    request that makes those stations unaffordable to browse.
+
+    Returns (metadata_attrs, time_coverage_span) — metadata_attrs matches
+    build_dataset()'s ds.attrs shape except for `data_quality_warnings`,
+    which is inherently a full-history diagnostic and isn't computed here.
+
+    Time coverage comes entirely from the file index (resolve_time_coverage,
+    already free — no file body is read for it, see Fix H / get_file_index()).
+    Geospatial coverage for a fixed station comes from static deployment
+    config (also free). For a mobile station it reads only the current live
+    file (cheap — a single, already-cached file) rather than scanning full
+    history, so it reflects recent position, not the platform's true all-time
+    roaming extent.
+    """
+    config = get_versioned_config(dataset_id, session=session, config_provider=config_provider)
+    index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
+    coverage = resolve_time_coverage(index_entries)
+
+    attrs = _build_global_attrs(config)
+    attrs.update(_build_provenance_attrs(session, dataset_id, config))
+    if coverage is not None:
+        start, end = coverage
+        attrs["time_coverage_start"] = f"{start.isoformat()}Z"
+        attrs["time_coverage_end"] = f"{end.isoformat()}Z"
+    attrs.update(_geospatial_summary(config, index_entries, data_provider))
+    return attrs, coverage
+
+
+def _geospatial_summary(
+    config: DatasetConfig, index_entries: list[FileRecord], data_provider: DataProvider
+) -> dict[str, Any]:
+    if config.platform_type == "fixed":
+        lats = [d.lat for d in config.deployments if d.lat is not None]
+        lons = [d.lon for d in config.deployments if d.lon is not None]
+        attrs: dict[str, Any] = {}
+        if lats:
+            attrs["geospatial_lat_min"] = min(lats)
+            attrs["geospatial_lat_max"] = max(lats)
+        if lons:
+            attrs["geospatial_lon_min"] = min(lons)
+            attrs["geospatial_lon_max"] = max(lons)
+        return attrs
+
+    live_files = [e for e in index_entries if e.file_role == "live"]
+    if not live_files:
+        return {}
+
+    raw_columns = _resolve_raw_columns_needed(config.variables, ["latitude", "longitude"])
+    raw = run_with_timeout(
+        data_provider.read_range,
+        config.source_config,
+        files=live_files,
+        start=None,
+        end=None,
+        variables=raw_columns,
+        timeout=settings.dataset_build_timeout_seconds,
+        description=f"reading live-file position for dataset {config.id!r}",
+    )
+    mapped = apply_variable_spec(raw, config.variables)
+    return _geospatial_bounds(mapped)
+
+
 def _naive_utc(value: datetime | None) -> datetime | None:
     # Raw LoggerNet timestamps carry no timezone and are treated as UTC by
     # convention. A caller-supplied start/end can arrive timezone-aware — a
@@ -170,6 +244,12 @@ def _build_coverage_attrs(ds: xr.Dataset) -> dict[str, Any]:
         attrs["time_coverage_start"] = f"{start.isoformat()}Z"
         attrs["time_coverage_end"] = f"{end.isoformat()}Z"
 
+    attrs.update(_geospatial_bounds(ds))
+    return attrs
+
+
+def _geospatial_bounds(ds: xr.Dataset) -> dict[str, Any]:
+    attrs: dict[str, Any] = {}
     for name, min_key, max_key in (
         ("latitude", "geospatial_lat_min", "geospatial_lat_max"),
         ("longitude", "geospatial_lon_min", "geospatial_lon_max"),
@@ -180,7 +260,6 @@ def _build_coverage_attrs(ds: xr.Dataset) -> dict[str, Any]:
         if values.size and not np.all(np.isnan(values)):
             attrs[min_key] = float(np.nanmin(values))
             attrs[max_key] = float(np.nanmax(values))
-
     return attrs
 
 
