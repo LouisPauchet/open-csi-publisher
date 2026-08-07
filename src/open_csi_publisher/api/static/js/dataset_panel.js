@@ -8,6 +8,10 @@
 // coverage) that isn't cheap enough to embed in every listing row. Exposes
 // window.showDatasetPanel() so map.js can call it too.
 
+// Set by base.html from Settings.root_path — prefixes every URL below so
+// they still resolve once this app is mounted under a subpath.
+const BASE_PATH = window.APP_ROOT_PATH || "";
+
 const ICON_DOWNLOAD =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
   'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -84,7 +88,7 @@ function showDatasetPanel(dataset) {
 async function fetchFullMetadata(dataset) {
   let response;
   try {
-    response = await fetch(`/datasets/${encodeURIComponent(dataset.id)}`);
+    response = await fetch(`${BASE_PATH}/datasets/${encodeURIComponent(dataset.id)}`);
   } catch (err) {
     return; // offline/network error — the already-rendered panel stands
   }
@@ -114,7 +118,7 @@ function renderPanel(dataset) {
     .join("");
 
   const id = encodeURIComponent(dataset.id);
-  const opendapUrl = `${window.location.origin}/opendap/datasets/${id}/opendap`;
+  const opendapUrl = `${window.location.origin}${BASE_PATH}/opendap/datasets/${id}/opendap`;
 
   panel.innerHTML =
     `<div class="panel-fixed">` +
@@ -129,8 +133,8 @@ function renderPanel(dataset) {
     `<span class="panel-dates-hint">(leave blank for the full record)</span>` +
     `</div>` +
     `<div class="panel-download-formats">` +
-    `<a class="panel-download-nc" href="/datasets/${id}/download.nc">NetCDF (.nc)</a>` +
-    `<a class="panel-download-csv" href="/datasets/${id}/download.csv">CSV</a>` +
+    `<a class="panel-download-nc" href="${BASE_PATH}/datasets/${id}/download.nc">NetCDF (.nc)</a>` +
+    `<a class="panel-download-csv" href="${BASE_PATH}/datasets/${id}/download.csv">CSV</a>` +
     `</div>` +
     `</div>` +
     `</div>` +
@@ -142,14 +146,14 @@ function renderPanel(dataset) {
     `<code class="panel-opendap-url">${escapeHtml(opendapUrl)}</code>` +
     `<button type="button" class="panel-opendap-copy">Copy</button>` +
     `</div>` +
-    `<a href="/opendap/datasets/${id}/opendap.dds" target="_blank" rel="noopener">View OPeNDAP structure (DDS)</a>` +
+    `<a href="${BASE_PATH}/opendap/datasets/${id}/opendap.dds" target="_blank" rel="noopener">View OPeNDAP structure (DDS)</a>` +
     `</div>` +
     `</div>` +
     `<div class="panel-action">` +
     `<button type="button" class="panel-action-btn panel-json-btn" aria-haspopup="true" aria-expanded="false" title="Metadata &amp; deployment history (JSON)">${ICON_DOCUMENT}</button>` +
     `<div class="panel-popover panel-json-popover hidden">` +
-    `<a href="/datasets/${id}" target="_blank" rel="noopener">Full metadata (JSON)</a>` +
-    `<a href="/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
+    `<a href="${BASE_PATH}/datasets/${id}" target="_blank" rel="noopener">Full metadata (JSON)</a>` +
+    `<a href="${BASE_PATH}/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
     `</div>` +
     `</div>` +
     `</div>` +
@@ -180,8 +184,8 @@ function wireDateRangeToDownloadLinks(panel, encodedId) {
     if (startInput.value) params.set("start", startInput.value);
     if (endInput.value) params.set("end", endInput.value);
     const query = params.toString();
-    ncLink.href = `/datasets/${encodedId}/download.nc` + (query ? `?${query}` : "");
-    csvLink.href = `/datasets/${encodedId}/download.csv` + (query ? `?${query}` : "");
+    ncLink.href = `${BASE_PATH}/datasets/${encodedId}/download.nc` + (query ? `?${query}` : "");
+    csvLink.href = `${BASE_PATH}/datasets/${encodedId}/download.csv` + (query ? `?${query}` : "");
   }
 
   startInput.addEventListener("change", update);

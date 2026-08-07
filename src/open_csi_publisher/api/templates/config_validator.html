@@ -257,7 +257,7 @@
     result.innerHTML = "<p>Validating…</p>";
     let response;
     try {
-      response = await fetch("/config-validator/validate", {
+      response = await fetch({{ (root_path ~ "/config-validator/validate") | tojson }}, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: textarea.value,

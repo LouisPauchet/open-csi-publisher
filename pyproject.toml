@@ -47,6 +47,7 @@ postgres = ["psycopg[binary]>=3.1"]
 [dependency-groups]
 dev = [
     "pytest>=8.2",
+    "pytest-cov>=5.0",
     "respx>=0.21",
     "ruff>=0.5",
 ]
@@ -64,3 +65,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true

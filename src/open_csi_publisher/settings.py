@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,24 @@ class Settings(BaseSettings):
     sources_file: str = "sample_configs/sources.yaml"
     branding_file: str = "sample_configs/branding.yaml"
     base_dir: str = "."
+
+    # Set when this app is deployed behind a reverse proxy on a subpath (e.g.
+    # https://host/csi-publisher/ instead of the domain root) — passed straight
+    # through to FastAPI(root_path=...) (api/app.py::create_app), which is the
+    # documented mechanism for exactly this "can't control the uvicorn/proxy
+    # startup command" scenario. Every outbound URL this app builds (templates,
+    # static JS, auth redirects, the publish endpoint's JSON contract) is
+    # prefixed with this value. The proxy itself must strip the prefix before
+    # forwarding to this app — that's the operator's own proxy config, not
+    # something this app does. Trailing slashes are normalized away so
+    # "/csi-publisher/" and "/csi-publisher" behave identically, and "/" (no
+    # real prefix) normalizes to "", matching FastAPI's own "unset" convention.
+    root_path: str = ""
+
+    @field_validator("root_path")
+    @classmethod
+    def _normalize_root_path(cls, value: str) -> str:
+        return value.rstrip("/")
 
     # Auth seam (implementation_plan.md §10): unset by default, meaning every
     # caller is anonymous (api/auth.py::get_current_user always returns None) and

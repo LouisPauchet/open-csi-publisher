@@ -119,8 +119,24 @@ def test_dataset_panel_js_fetches_full_metadata_after_the_initial_render():
     # time coverage) and re-renders once it lands.
     content = PANEL_JS.read_text(encoding="utf-8")
     assert "fetchFullMetadata" in content
-    assert "fetch(`/datasets/" in content
+    assert "fetch(`${BASE_PATH}/datasets/" in content
     assert "detail.metadata" in content
+
+
+def test_dataset_panel_js_prefixes_every_url_with_the_configured_root_path():
+    # window.APP_ROOT_PATH (set by base.html from Settings.root_path) must
+    # prefix every root-relative URL this file builds, or every link/fetch
+    # breaks once the app is mounted under a subpath.
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert 'const BASE_PATH = window.APP_ROOT_PATH || "";' in content
+    assert "${BASE_PATH}/datasets/${id}/download.nc" in content
+    assert "${BASE_PATH}/datasets/${id}/download.csv" in content
+    assert "${BASE_PATH}/opendap/datasets/${id}/opendap.dds" in content
+    assert 'href="${BASE_PATH}/datasets/${id}"' in content
+    assert "${BASE_PATH}/datasets/${id}/deployments" in content
+    assert "${window.location.origin}${BASE_PATH}/opendap/datasets/${id}/opendap`" in content
+    assert "${BASE_PATH}/datasets/${encodedId}/download.nc" in content
+    assert "${BASE_PATH}/datasets/${encodedId}/download.csv" in content
 
 
 def test_dataset_panel_js_guards_against_a_stale_fetch_response():

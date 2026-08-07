@@ -16,8 +16,18 @@ from open_csi_publisher.settings import settings
 
 router = APIRouter()
 
+
+def _template_context(request: Request) -> dict:
+    """Injected into every render so templates can prefix hrefs/src with the
+    configured ROOT_PATH (Settings.root_path) instead of hardcoding a
+    domain-root-relative path. Read from `settings` directly, not
+    `request.scope["root_path"]` (ASGI root_path) — see api/app.py's
+    create_app() docstring for why this app never sets that."""
+    return {"root_path": settings.root_path}
+
+
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR), context_processors=[_template_context])
 
 
 @router.get("/config-validator")

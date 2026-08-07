@@ -106,6 +106,18 @@ def test_publish_datasets_reports_a_real_latest_complete_month(client):
     assert entry["download_url"] == f"/publish/kapp_thordsen_10minute/{entry['latest_complete_month']}"
 
 
+@requires_mount
+def test_download_url_is_prefixed_with_the_configured_root_path(client, monkeypatch):
+    monkeypatch.setattr(settings_module.settings, "root_path", "/csi-publisher")
+
+    body = client.get("/publish/datasets", headers=_auth_headers()).json()
+
+    entry = body[0]
+    assert entry["download_url"] == (
+        f"/csi-publisher/publish/kapp_thordsen_10minute/{entry['latest_complete_month']}"
+    )
+
+
 # --- GET /publish/{id}/{yyyy-mm} --------------------------------------------
 
 

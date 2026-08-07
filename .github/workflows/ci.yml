@@ -44,8 +44,17 @@ jobs:
       # No real station data (mount/) or sample_configs/-dependent .env exists
       # in CI — tests that need either are self-skipping (requires_mount) or
       # use tmp_path/in-memory fixtures, same as any contributor's machine
-      # without the real mount present.
-      - run: uv run pytest -q
+      # without the real mount present. Coverage numbers here are therefore
+      # lower than a local run against the real mount/ data.
+      - run: uv run pytest -q --cov=open_csi_publisher --cov-report=xml --cov-report=term-missing
+
+      # Informational only — never blocks a merge, including before
+      # CODECOV_TOKEN is added as a repo secret. See docs/ci_cd.md.
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   docker:
     name: Build image (validate only — release-please.yml does the actual push)

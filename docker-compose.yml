@@ -16,6 +16,11 @@ services:
       SOURCES_FILE: sample_configs/sources.yaml
       BRANDING_FILE: sample_configs/branding.yaml
 
+      # --- reverse-proxy subpath (unset = served at the domain root) ---
+      # e.g. "/csi-publisher" for https://host/csi-publisher/ — see
+      # docs/docker.md#subpath-deployment-root_path.
+      ROOT_PATH: ""
+
       # --- OIDC / Entra ID login (unset = every caller anonymous, restricted
       # datasets stay hidden; the login flow itself isn't built yet) ---
       OIDC_ISSUER: ""

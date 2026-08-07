@@ -89,6 +89,47 @@ def test_create_app_skips_session_middleware_and_logs_when_oidc_partially_config
     assert "oidc" in caplog.text.lower()
 
 
+def test_create_app_does_not_set_fastapi_root_path(tmp_path, monkeypatch):
+    # Deliberately not wired — see create_app()'s docstring: FastAPI's own
+    # root_path forces scope["root_path"], which breaks nested Mount routing
+    # (/static, /opendap) once there's no real proxy reflecting it in the
+    # actual request path. Settings.root_path is applied manually to outbound
+    # URLs instead (see the other tests in this file).
+    _use_throwaway_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(settings_module.settings, "root_path", "/csi-publisher")
+
+    app = create_app()
+
+    assert app.root_path == ""
+
+
+def test_create_app_prefixes_static_and_nav_links_with_root_path(tmp_path, monkeypatch):
+    _use_throwaway_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(settings_module.settings, "root_path", "/csi-publisher")
+    client = TestClient(create_app())
+
+    body = client.get("/").text
+
+    assert 'href="/csi-publisher/"' in body
+    assert "/csi-publisher/static/css/site.css" in body
+
+
+@requires_mount
+def test_create_app_wires_opendap_mount_under_a_configured_root_path(tmp_path, monkeypatch):
+    # Settings.root_path only changes outbound URLs this app hands back to
+    # the browser (templates/JS/redirects/JSON) — the app's own internal
+    # routing, including the nested /opendap Mount, is untouched by it and
+    # must still be reachable at the same (proxy-already-stripped) path a
+    # real deployment's requests would actually arrive at.
+    _use_throwaway_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(settings_module.settings, "root_path", "/csi-publisher")
+    client = TestClient(create_app())
+
+    opendap = client.get("/opendap/datasets/hanna_resvoll_10min/opendap.dds")
+    assert opendap.status_code == 200
+    assert "air_temperature" in opendap.text
+
+
 def test_create_app_resolves_templates_independently_of_process_cwd(tmp_path, monkeypatch):
     # a real deployment's sources/data paths are explicit config (absolute paths
     # via settings), not implicitly CWD-relative — set base_dir explicitly to

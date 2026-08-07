@@ -16,6 +16,9 @@
 
 const SVALBARD_CENTER = [78.0, 15.0];
 const TRACK_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Set by base.html from Settings.root_path — prefixes every URL below so
+// they still resolve once this app is mounted under a subpath.
+const BASE_PATH = window.APP_ROOT_PATH || "";
 
 let mapInstance = null;
 const markersByDatasetId = {};
@@ -49,7 +52,7 @@ async function initFromRenderedRows(rows) {
 async function initFromDatasetsEndpoint() {
   let datasets = [];
   try {
-    const response = await fetch("/datasets");
+    const response = await fetch(BASE_PATH + "/datasets");
     const body = await response.json();
     datasets = body.datasets || [];
   } catch (err) {
@@ -93,7 +96,7 @@ function addFixedMarker(dataset, lat, lon) {
 async function addMobileTrack(dataset) {
   const since = new Date(Date.now() - TRACK_LOOKBACK_MS).toISOString();
   const url =
-    `/datasets/${encodeURIComponent(dataset.id)}/data` +
+    `${BASE_PATH}/datasets/${encodeURIComponent(dataset.id)}/data` +
     `?variables=latitude&variables=longitude&start=${encodeURIComponent(since)}`;
 
   let body;

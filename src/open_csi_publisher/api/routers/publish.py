@@ -65,7 +65,11 @@ def list_publishable_datasets(
             {
                 "dataset_id": location.dataset_id,
                 "latest_complete_month": period,
-                "download_url": f"/publish/{location.dataset_id}/{period}" if period else None,
+                "download_url": (
+                    f"{settings.root_path}/publish/{location.dataset_id}/{period}"
+                    if period
+                    else None
+                ),
             }
         )
     return results
