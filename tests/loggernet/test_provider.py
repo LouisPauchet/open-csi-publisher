@@ -185,6 +185,54 @@ def test_get_file_index_multiple_live_candidates_still_raises(tmp_path):
         provider.get_file_index(config)
 
 
+def _toa5_with_one_row(timestamp: str) -> str:
+    return (
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","AirT_C"\n'
+        '"TS","RN","Deg C"\n'
+        '"","Smp","Avg"\n'
+        f'"{timestamp}",0,1.0\n'
+    )
+
+
+def test_get_file_index_stitches_archived_bounds_from_next_files_start_regardless_of_glob_order(
+    tmp_path,
+):
+    # Deliberately named/written out of chronological order, so a naive
+    # lexical/glob-order stitch would get this wrong — sorting must be by
+    # each file's own parsed time_start, not filename or discovery order.
+    (tmp_path / "Station_Table.dat.backup2").write_text(
+        _toa5_with_one_row("2026-03-01 00:00:00"), encoding="utf-8"
+    )
+    (tmp_path / "Station_Table_Historical.dat").write_text(
+        _toa5_with_one_row("2026-01-01 00:00:00"), encoding="utf-8"
+    )
+    (tmp_path / "Station_Table.dat.backup1").write_text(
+        _toa5_with_one_row("2026-02-01 00:00:00"), encoding="utf-8"
+    )
+    (tmp_path / "Station_Table.dat").write_text(
+        _toa5_with_one_row("2026-04-01 00:00:00"), encoding="utf-8"
+    )
+    provider = LoggerNetDataProvider(tmp_path)
+    config = LoggerNetSourceConfig(file_pattern="Station_Table.dat")
+
+    records = provider.get_file_index(config)
+    by_name = {r.file_name: r for r in records}
+
+    live_start = by_name["Station_Table.dat"].time_start
+    assert live_start == datetime(2026, 4, 1, 0, 0, 0)
+
+    historical = by_name["Station_Table_Historical.dat"]
+    backup1 = by_name["Station_Table.dat.backup1"]
+    backup2 = by_name["Station_Table.dat.backup2"]
+
+    assert historical.time_start == datetime(2026, 1, 1, 0, 0, 0)
+    assert historical.time_end == backup1.time_start == datetime(2026, 2, 1, 0, 0, 0)
+    assert backup1.time_end == backup2.time_start == datetime(2026, 3, 1, 0, 0, 0)
+    # last (chronologically) archived file's end stitches to the live file's start
+    assert backup2.time_end == live_start
+
+
 @requires_mount
 def test_get_file_index_initial_discovery(mount_root):
     provider = LoggerNetDataProvider(mount_root)
@@ -193,7 +241,14 @@ def test_get_file_index_initial_discovery(mount_root):
     by_role = {r.file_role: r for r in records}
     assert by_role["archived"].status == "closed"
     assert by_role["archived"].file_name.endswith("_Historical.dat")
-    assert by_role["archived"].time_end == datetime(2026, 3, 10, 12, 50, 0)
+    assert by_role["archived"].time_start == datetime(2023, 8, 11, 9, 10, 0)
+    # Cheap, contiguous-stitched bound (Fix H): the archived file's own true
+    # last timestamp is 2026-03-10 12:50:00, but time_end is now derived as
+    # "the next file's time_start" (here, the live file's) rather than fully
+    # parsed — always >= the true end, so _select_files_covering() can only
+    # become more inclusive, never drop real data (see core/builder.py).
+    assert by_role["archived"].time_end == datetime(2026, 7, 17, 11, 30, 0)
+    assert "surface_temperature_Avg" not in by_role["archived"].variables  # column drift
 
     assert by_role["live"].status == "active"
     assert by_role["live"].time_start == datetime(2026, 7, 17, 11, 30, 0)
@@ -233,15 +288,19 @@ def test_get_file_index_never_reparses_closed_archived_file(mount_root):
     provider = LoggerNetDataProvider(mount_root)
     with patch.object(
         provider_module, "parse_toa5_file", wraps=provider_module.parse_toa5_file
-    ) as spy:
+    ) as full_spy, patch.object(
+        provider_module, "parse_toa5_start_time", wraps=provider_module.parse_toa5_start_time
+    ) as cheap_spy:
         first = provider.get_file_index(_kapp_thordsen_config())
-        assert spy.call_count == 2  # archived + live, both new
+        assert full_spy.call_count == 1  # live file: still a full parse
+        assert cheap_spy.call_count == 1  # archived file: cheap first-line read only
 
-        spy.reset_mock()
+        full_spy.reset_mock()
+        cheap_spy.reset_mock()
         provider.get_file_index(_kapp_thordsen_config(), previous=first)
-        # archived file is closed and already known: must not be reparsed
-        parsed_paths = [str(call.args[0]) for call in spy.call_args_list]
-        assert not any(p.endswith("_Historical.dat") for p in parsed_paths)
+        # archived file is closed and already known: must not be touched by either parser
+        assert full_spy.call_count == 0
+        assert cheap_spy.call_count == 0
 
 
 @requires_mount
