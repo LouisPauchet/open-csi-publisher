@@ -1,5 +1,7 @@
 # open-csi-publisher
 
+[![codecov](https://codecov.io/gh/LouisPauchet/open-csi-publisher/graph/badge.svg?token=QSUX8CI6G5)](https://codecov.io/gh/LouisPauchet/open-csi-publisher)
+
 A data portal for environmental monitoring stations, built for the [University Centre
 in Svalbard (UNIS)](https://www.unis.no). Turns raw LoggerNet station files into a
 browsable, filterable dataset catalog with a station map, and serves the data itself —
