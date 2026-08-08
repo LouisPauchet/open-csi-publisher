@@ -11,7 +11,7 @@ import xarray as xr
 
 from open_csi_publisher.core.config_schema import GenericCsvSourceConfig
 from open_csi_publisher.core.models import FileRecord
-from open_csi_publisher.providers.base import DataProvider
+from open_csi_publisher.providers.base import DataProvider, empty_dataset
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.cache import NullParseCache, ParseCache
 
@@ -66,6 +66,9 @@ class GenericCsvDataProvider(DataProvider):
         end: datetime | None,
         variables: list[str] | None = None,
     ) -> xr.Dataset:
+        if not files:
+            return empty_dataset()
+
         record = files[0]
         path = self._data_root / record.file_name
         df = self._parse_cached(path, record.size, source_config, variables=variables)

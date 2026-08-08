@@ -10,6 +10,7 @@ import pytest
 from open_csi_publisher.providers.data.loggernet.fileset import (
     AmbiguousFileSetError,
     classify_files,
+    count_live_candidates,
     reconcile_fileset,
 )
 from open_csi_publisher.providers.data.loggernet.toa5 import parse_toa5_file
@@ -88,6 +89,35 @@ def test_classify_files_live_only_is_fine(tmp_path):
     live.write_text("x")
     classified = classify_files([live])
     assert [c.role for c in classified] == ["live"]
+
+
+# --- count_live_candidates -------------------------------------------------------
+
+
+def test_count_live_candidates_zero_when_only_archived_files_present(tmp_path):
+    only_archived = tmp_path / "Station_Table_Historical.dat"
+    only_archived.write_text("x")
+    assert count_live_candidates([only_archived], historical_suffix="_Historical") == 0
+
+
+def test_count_live_candidates_counts_non_archived_files(tmp_path):
+    a = tmp_path / "Station_TableA.dat"
+    b = tmp_path / "Station_TableB.dat"
+    for p in (a, b):
+        p.write_text("x")
+    assert count_live_candidates([a, b], historical_suffix="_Historical") == 2
+
+
+def test_count_live_candidates_recognizes_dot_backup_convention_as_archived(tmp_path):
+    live = tmp_path / "Station_Table.dat"
+    backup = tmp_path / "Station_Table.dat.backup"
+    for p in (live, backup):
+        p.write_text("x")
+    assert count_live_candidates([live, backup], historical_suffix="_Historical") == 1
+
+
+def test_count_live_candidates_empty_paths_is_zero():
+    assert count_live_candidates([], historical_suffix="_Historical") == 0
 
 
 # --- reconcile_fileset ----------------------------------------------------------

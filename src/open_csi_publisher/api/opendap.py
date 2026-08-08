@@ -12,8 +12,12 @@ from pydantic import ConfigDict
 from xpublish.plugins import hookimpl
 from xpublish.plugins.manage import load_default_plugins
 
+from loguru import logger
+
 from open_csi_publisher.core import builder as builder_module
 from open_csi_publisher.core.config_versioning import get_versioned_config
+from open_csi_publisher.index.service import refresh_and_get_index
+from open_csi_publisher.settings import settings
 from open_csi_publisher.sources import DatasetLocation
 
 _original_dods_encode = dap_protocol.dods_encode
@@ -86,10 +90,19 @@ class PortalDatasetProvider(xpublish.Plugin):
     session_factory: Any
     locations: list[DatasetLocation]
     cache: TTLCache = TTLCache(maxsize=128, ttl=60)
+    # Separate from `cache` above (which holds built xr.Dataset objects): this
+    # caches the size-limit verdict itself, so a too-large dataset doesn't
+    # get its file index re-summed (and, if excluded, re-logged) on every
+    # single catalog listing call.
+    size_limit_cache: TTLCache = TTLCache(maxsize=128, ttl=60)
 
     @hookimpl
     def get_datasets(self) -> list[str]:
-        return [loc.dataset_id for loc in self.locations if self._is_public(loc)]
+        return [
+            loc.dataset_id
+            for loc in self.locations
+            if self._is_public(loc) and self._is_within_size_limit(loc)
+        ]
 
     @hookimpl
     def get_dataset(self, dataset_id: str) -> xr.Dataset | None:
@@ -97,16 +110,26 @@ class PortalDatasetProvider(xpublish.Plugin):
             return self.cache[dataset_id]
 
         location = next((loc for loc in self.locations if loc.dataset_id == dataset_id), None)
-        if location is None or not self._is_public(location):
+        if location is None or not self._is_public(location) or not self._is_within_size_limit(location):
             return None
 
-        with self.session_factory() as session:
-            ds = builder_module.build_dataset(
-                dataset_id,
-                session=session,
-                config_provider=location.config_provider,
-                data_provider=location.data_provider,
-            )
+        # /opendap is a separately mounted ASGI app (api/app.py::create_app),
+        # so the main app's exception handlers (Fix A) never see failures
+        # here — handled locally instead: log the full traceback and make
+        # this one dataset simply unavailable, matching the existing
+        # not-public/too-large convention above, rather than breaking the
+        # whole OPeNDAP sub-app for every dataset.
+        try:
+            with self.session_factory() as session:
+                ds = builder_module.build_dataset(
+                    dataset_id,
+                    session=session,
+                    config_provider=location.config_provider,
+                    data_provider=location.data_provider,
+                )
+        except Exception:
+            logger.exception("OPeNDAP: failed to build dataset {}", dataset_id)
+            return None
         self.cache[dataset_id] = ds
         return ds
 
@@ -116,6 +139,47 @@ class PortalDatasetProvider(xpublish.Plugin):
                 location.dataset_id, session=session, config_provider=location.config_provider
             )
         return config.access == "public"
+
+    def _is_within_size_limit(self, location: DatasetLocation) -> bool:
+        """OPeNDAP needs one whole dataset fully built and cached in memory to
+        support arbitrary DAP2 slicing by external clients — fundamentally
+        incompatible with a station too large to ever fully build. Datasets
+        over the cap are excluded from the catalog (get_datasets()) and
+        refused directly (get_dataset()) rather than left to fail loudly per
+        request, with a warning logged once (per size_limit_cache's TTL, see
+        above) so it's clear from the logs why a dataset isn't there rather
+        than it just silently not appearing.
+
+        Only meaningful for source_type == "loggernet" (matching
+        core/builder.py::_check_size_cap's own scoping) — total size here
+        means the dataset's *entire* history, not a time-filtered selection,
+        since OPeNDAP must be able to serve the whole thing.
+        """
+        if location.dataset_id in self.size_limit_cache:
+            return self.size_limit_cache[location.dataset_id]
+
+        with self.session_factory() as session:
+            config = get_versioned_config(
+                location.dataset_id, session=session, config_provider=location.config_provider
+            )
+            if config.source_type != "loggernet":
+                result = True
+            else:
+                index_entries = refresh_and_get_index(
+                    session, location.dataset_id, config.source_config, location.data_provider
+                )
+                total_bytes = sum(e.size for e in index_entries)
+                result = total_bytes <= settings.max_dataset_build_bytes
+                if not result:
+                    logger.warning(
+                        "OPeNDAP: excluding dataset {} — total size {} exceeds the {} limit",
+                        location.dataset_id,
+                        builder_module.human_bytes(total_bytes),
+                        builder_module.human_bytes(settings.max_dataset_build_bytes),
+                    )
+
+        self.size_limit_cache[location.dataset_id] = result
+        return result
 
 
 def build_opendap_app(*, session_factory: Any, locations: list[DatasetLocation]) -> FastAPI:

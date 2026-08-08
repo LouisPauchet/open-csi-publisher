@@ -74,6 +74,26 @@ def test_root_path_of_just_a_slash_normalizes_to_empty_string(monkeypatch):
     assert Settings().root_path == ""
 
 
+def test_dataset_build_timeout_seconds_default(monkeypatch):
+    monkeypatch.delenv("DATASET_BUILD_TIMEOUT_SECONDS", raising=False)
+    assert Settings().dataset_build_timeout_seconds == 120.0
+
+
+def test_dataset_build_timeout_seconds_overridable_via_env_var(monkeypatch):
+    monkeypatch.setenv("DATASET_BUILD_TIMEOUT_SECONDS", "45")
+    assert Settings().dataset_build_timeout_seconds == 45.0
+
+
+def test_max_dataset_build_bytes_default(monkeypatch):
+    monkeypatch.delenv("MAX_DATASET_BUILD_BYTES", raising=False)
+    assert Settings().max_dataset_build_bytes == 5 * 1024**3
+
+
+def test_max_dataset_build_bytes_overridable_via_env_var(monkeypatch):
+    monkeypatch.setenv("MAX_DATASET_BUILD_BYTES", str(50 * 1024**3))
+    assert Settings().max_dataset_build_bytes == 50 * 1024**3
+
+
 def _clear_oidc_env(monkeypatch):
     for var in ("OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "SESSION_SECRET_KEY"):
         monkeypatch.delenv(var, raising=False)

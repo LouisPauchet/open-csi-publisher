@@ -230,3 +230,36 @@ def test_list_all_datasets_enumerates_across_sources(sample_config_dir):
         "hanna_resvoll_10min",
     }
     assert all(loc.source_id == "loggernet_test_server" for loc in locations)
+
+
+# --- list_all_datasets: one bad source must not break the rest -------------------
+
+_GOOD_SOURCE = SourceEntry(
+    id="good", type="loggernet", config_provider="folder",
+    config_location="sample_configs/", data_location="mount/loggernet-test-server/",
+)
+_BAD_SOURCE = SourceEntry(
+    id="bad_source", type="some_future_type", config_provider="folder",
+    config_location="sample_configs/", data_location="x",
+)
+
+
+@requires_mount
+def test_list_all_datasets_skips_a_source_whose_provider_construction_raises():
+    locations = list_all_datasets([_GOOD_SOURCE, _BAD_SOURCE], base_dir=REPO_ROOT)
+    assert {loc.source_id for loc in locations} == {"good"}
+    assert {loc.dataset_id for loc in locations} == {
+        "isfjord_radio_solar_park_measurements3",
+        "kapp_thordsen_10minute",
+        "hanna_resvoll_10min",
+    }
+
+
+def test_list_all_datasets_logs_the_failing_source_id_and_error(caplog):
+    list_all_datasets([_BAD_SOURCE], base_dir=REPO_ROOT)
+    assert "bad_source" in caplog.text
+    assert "unknown source type" in caplog.text
+
+
+def test_list_all_datasets_with_only_a_failing_source_returns_empty_list():
+    assert list_all_datasets([_BAD_SOURCE], base_dir=REPO_ROOT) == []

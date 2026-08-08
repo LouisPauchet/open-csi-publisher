@@ -14,10 +14,17 @@ from open_csi_publisher.core.config_schema import DatasetConfig, VariableSpec
 from open_csi_publisher.core.config_versioning import get_versioned_config
 from open_csi_publisher.core.deployment import apply_deployment_metadata
 from open_csi_publisher.core.models import FileRecord
+from open_csi_publisher.core.timeouts import run_with_timeout
 from open_csi_publisher.core.variable_mapping import apply_variable_spec
 from open_csi_publisher.index.service import refresh_and_get_index
 from open_csi_publisher.providers.base import ConfigProvider, DataProvider
+from open_csi_publisher.settings import settings
 from open_csi_publisher.state import repository
+
+
+class DatasetTooLargeError(ValueError):
+    """Raised when a build's selected files exceed settings.max_dataset_build_bytes
+    (LoggerNet only — see _check_size_cap's docstring)."""
 
 
 def build_dataset(
@@ -29,12 +36,20 @@ def build_dataset(
     session: Session,
     config_provider: ConfigProvider,
     data_provider: DataProvider,
+    enforce_size_cap: bool = True,
 ) -> xr.Dataset:
     """The one function every consumer (REST, OPeNDAP, downloads, the publish
     endpoint) calls (implementation_plan.md §7): resolves the current config
     version, lazily refreshes the file index, reads only the raw columns and
     files actually needed, maps them to canonical variable names, resolves
     fixed/mobile deployment metadata, and attaches CF-ish global attributes.
+
+    `enforce_size_cap=False` (api/routers/publish.py's get_publish_month() is
+    the one caller that passes this) skips the size-cap check below — the
+    publish endpoint is already self-bounded to one calendar month per call
+    and is a trusted, API-key-gated server-to-server path, so the cap that
+    protects ad hoc REST requests from an unbounded "give me everything"
+    would only ever get in its way.
     """
     start = _naive_utc(start)
     end = _naive_utc(end)
@@ -46,10 +61,19 @@ def build_dataset(
 
     index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
     selected = _select_files_covering(index_entries, start, end)
+    if enforce_size_cap:
+        _check_size_cap(dataset_id, config, selected)
 
     raw_columns = _resolve_raw_columns_needed(config.variables, variables)
-    raw = data_provider.read_range(
-        config.source_config, files=selected, start=start, end=end, variables=raw_columns
+    raw = run_with_timeout(
+        data_provider.read_range,
+        config.source_config,
+        files=selected,
+        start=start,
+        end=end,
+        variables=raw_columns,
+        timeout=settings.dataset_build_timeout_seconds,
+        description=f"reading data for dataset {dataset_id!r}",
     )
 
     mapped = apply_variable_spec(raw, config.variables)
@@ -67,6 +91,115 @@ def build_dataset(
         result.sizes.get("time", 0),
     )
     return result
+
+
+def build_dataset_summary(
+    dataset_id: str,
+    *,
+    session: Session,
+    config_provider: ConfigProvider,
+    data_provider: DataProvider,
+) -> tuple[dict[str, Any], tuple[datetime, datetime] | None]:
+    """Cheap alternative to build_dataset() for callers that only need metadata,
+    not the actual data — api/routers/dataset_detail.py's GET /datasets/{id},
+    hit on every dataset page view. Some deployed stations span hundreds of
+    files and 100+ GB of history; building the whole dataset just to report a
+    time range and a few global attributes is exactly the unbounded-by-default
+    request that makes those stations unaffordable to browse.
+
+    Returns (metadata_attrs, time_coverage_span) — metadata_attrs matches
+    build_dataset()'s ds.attrs shape except for `data_quality_warnings`,
+    which is inherently a full-history diagnostic and isn't computed here.
+
+    Time coverage comes entirely from the file index (resolve_time_coverage,
+    already free — no file body is read for it, see Fix H / get_file_index()).
+    Geospatial coverage for a fixed station comes from static deployment
+    config (also free). For a mobile station it reads only the current live
+    file (cheap — a single, already-cached file) rather than scanning full
+    history, so it reflects recent position, not the platform's true all-time
+    roaming extent.
+    """
+    config = get_versioned_config(dataset_id, session=session, config_provider=config_provider)
+    index_entries = refresh_and_get_index(session, dataset_id, config.source_config, data_provider)
+    coverage = resolve_time_coverage(index_entries)
+
+    attrs = _build_global_attrs(config)
+    attrs.update(_build_provenance_attrs(session, dataset_id, config))
+    if coverage is not None:
+        start, end = coverage
+        attrs["time_coverage_start"] = f"{start.isoformat()}Z"
+        attrs["time_coverage_end"] = f"{end.isoformat()}Z"
+    attrs.update(_geospatial_summary(config, index_entries, data_provider))
+    return attrs, coverage
+
+
+def _geospatial_summary(
+    config: DatasetConfig, index_entries: list[FileRecord], data_provider: DataProvider
+) -> dict[str, Any]:
+    if config.platform_type == "fixed":
+        # DatasetConfig requires at least one deployment, and a fixed
+        # platform's deployments always have lat/lon set (config_schema.py's
+        # own validators) — no defensive empty/None handling needed here.
+        lats = [d.lat for d in config.deployments]
+        lons = [d.lon for d in config.deployments]
+        return {
+            "geospatial_lat_min": min(lats),
+            "geospatial_lat_max": max(lats),
+            "geospatial_lon_min": min(lons),
+            "geospatial_lon_max": max(lons),
+        }
+
+    live_files = [e for e in index_entries if e.file_role == "live"]
+    if not live_files:
+        return {}
+
+    raw_columns = _resolve_raw_columns_needed(config.variables, ["latitude", "longitude"])
+    raw = run_with_timeout(
+        data_provider.read_range,
+        config.source_config,
+        files=live_files,
+        start=None,
+        end=None,
+        variables=raw_columns,
+        timeout=settings.dataset_build_timeout_seconds,
+        description=f"reading live-file position for dataset {config.id!r}",
+    )
+    mapped = apply_variable_spec(raw, config.variables)
+    return _geospatial_bounds(mapped)
+
+
+def _check_size_cap(dataset_id: str, config: DatasetConfig, selected: list[FileRecord]) -> None:
+    """Only meaningful for source_type == "loggernet": FileRecord.size there is
+    a genuine on-disk byte count and many files can be concatenated together
+    for one build (some deployed stations span hundreds of files and 100+ GB
+    total). generic_csv is always exactly one file, and thingsboard's `size`
+    is a change-token, not a byte count — neither is checked here.
+
+    Runs against metadata the file index already has (no extra I/O), before
+    the actual parse/concat — a request that would blow the cap fails
+    immediately with an actionable message instead of after minutes of
+    parsing (or, without Fix B's timeout, never returning at all).
+    """
+    if config.source_type != "loggernet":
+        return
+    total_bytes = sum(entry.size for entry in selected)
+    limit = settings.max_dataset_build_bytes
+    if total_bytes <= limit:
+        return
+    raise DatasetTooLargeError(
+        f"dataset {dataset_id!r}: selected files total {human_bytes(total_bytes)}, "
+        f"which exceeds the {human_bytes(limit)} limit — narrow the request with "
+        "start/end query parameters (e.g. one month at a time)"
+    )
+
+
+def human_bytes(n: int) -> str:
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024:
+            return f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} PB"
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
@@ -161,6 +294,12 @@ def _build_coverage_attrs(ds: xr.Dataset) -> dict[str, Any]:
         attrs["time_coverage_start"] = f"{start.isoformat()}Z"
         attrs["time_coverage_end"] = f"{end.isoformat()}Z"
 
+    attrs.update(_geospatial_bounds(ds))
+    return attrs
+
+
+def _geospatial_bounds(ds: xr.Dataset) -> dict[str, Any]:
+    attrs: dict[str, Any] = {}
     for name, min_key, max_key in (
         ("latitude", "geospatial_lat_min", "geospatial_lat_max"),
         ("longitude", "geospatial_lon_min", "geospatial_lon_max"),
@@ -171,7 +310,6 @@ def _build_coverage_attrs(ds: xr.Dataset) -> dict[str, Any]:
         if values.size and not np.all(np.isnan(values)):
             attrs[min_key] = float(np.nanmin(values))
             attrs[max_key] = float(np.nanmax(values))
-
     return attrs
 
 

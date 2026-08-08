@@ -96,6 +96,36 @@ def parse_toa5_header(path: Path) -> Toa5Header:
     )
 
 
+def parse_toa5_start_time(path: Path, *, timestamp_column: str = "TIMESTAMP") -> datetime | None:
+    """Cheap alternative to parse_toa5_file() for when only a file's first
+    timestamp is needed (core/builder.py's file-index time bounds) — reads
+    the 4-line header plus exactly one data row, never the rest of the file.
+    Returns None for a file with zero data rows, matching parse_toa5_file()'s
+    own convention.
+    """
+    header = parse_toa5_header(path)
+    df = pd.read_csv(
+        path,
+        skiprows=4,
+        header=None,
+        names=header.column_names,
+        quotechar='"',
+        usecols=[timestamp_column],
+        nrows=1,
+        encoding="utf-8",
+        encoding_errors="replace",
+    )
+    if df.shape[0] == 0:
+        return None
+
+    try:
+        parsed_time = pd.to_datetime(df[timestamp_column], format=_TIMESTAMP_FORMAT)
+    except ValueError:
+        parsed_time = pd.to_datetime(df[timestamp_column])
+
+    return parsed_time.iloc[0].to_pydatetime()
+
+
 def parse_toa5_file(
     path: Path,
     *,
