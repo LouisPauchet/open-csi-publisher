@@ -43,3 +43,28 @@ def test_map_js_prefixes_every_url_with_the_configured_root_path():
     assert 'const BASE_PATH = window.APP_ROOT_PATH || "";' in content
     assert 'fetch(BASE_PATH + "/datasets")' in content
     assert "`${BASE_PATH}/datasets/${encodeURIComponent(dataset.id)}/data`" in content
+
+
+def test_map_js_draws_a_bounding_box_not_a_full_track_polyline():
+    # A dense/long-history mobile station's full per-point track is heavy to
+    # render (thousands of vertices) — addMobileTrack() must draw a
+    # lat/lon-min/max bounding box instead of every fetched point.
+    content = MAP_JS.read_text(encoding="utf-8")
+    assert "L.polyline(points" not in content
+    assert "L.rectangle(" in content
+
+
+def test_map_js_computes_lat_lon_bounds_from_fetched_points():
+    content = MAP_JS.read_text(encoding="utf-8")
+    assert "Math.min(...latValues)" in content
+    assert "Math.max(...latValues)" in content
+    assert "Math.min(...lonValues)" in content
+    assert "Math.max(...lonValues)" in content
+
+
+def test_map_js_skips_the_rectangle_for_a_degenerate_single_point():
+    # A stationary/near-stationary mobile platform (or exactly one fetched
+    # point) has no real extent — the marker alone already conveys that;
+    # drawing a zero-area rectangle on top of it would add nothing.
+    content = MAP_JS.read_text(encoding="utf-8")
+    assert "latMin !== latMax || lonMin !== lonMax" in content

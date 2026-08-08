@@ -117,7 +117,22 @@ async function addMobileTrack(dataset) {
   }
   if (points.length === 0) return;
 
-  L.polyline(points, { color: "#2b6cb0" }).addTo(mapInstance);
+  // A full per-point track is heavy to render for a dense/long-history
+  // station (thousands of vertices) — show the bounding box instead.
+  const latValues = points.map((p) => p[0]);
+  const lonValues = points.map((p) => p[1]);
+  const latMin = Math.min(...latValues);
+  const latMax = Math.max(...latValues);
+  const lonMin = Math.min(...lonValues);
+  const lonMax = Math.max(...lonValues);
+  if (latMin !== latMax || lonMin !== lonMax) {
+    L.rectangle([[latMin, lonMin], [latMax, lonMax]], {
+      color: "#2b6cb0",
+      weight: 1,
+      fillOpacity: 0.1,
+    }).addTo(mapInstance);
+  }
+
   const last = points[points.length - 1];
   const marker = L.marker(last).addTo(mapInstance);
   marker.bindPopup(`<strong>${dataset.title}</strong><br>${dataset.id} (latest position)`);
