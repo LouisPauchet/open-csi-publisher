@@ -83,6 +83,34 @@ def datasets_page(
     )
 
 
+@router.get("/visualize")
+def visualize_page(
+    request: Request,
+    dataset: str | None = None,
+    session: Session = Depends(get_db_session),
+    locations: list[DatasetLocation] = Depends(get_dataset_locations),
+    user: User | None = Depends(get_current_user),
+    branding: BrandingConfig = Depends(get_branding),
+):
+    # Access control happens once, here, via the same choke point
+    # datasets_page uses — the template only ever offers/preselects a
+    # dataset that's already in this list, so a ?dataset= value for a
+    # restricted or unknown id simply matches no <option>, no separate
+    # visibility check needed.
+    visible = list_visible_datasets(session, user, locations=locations)
+    return templates.TemplateResponse(
+        request,
+        "visualize.html",
+        {
+            "datasets": visible.datasets,
+            "selected_dataset": dataset or "",
+            "branding": branding,
+            "user": user,
+            "oidc_enabled": settings.oidc_configured,
+        },
+    )
+
+
 @router.get("/map")
 def map_page(
     request: Request,

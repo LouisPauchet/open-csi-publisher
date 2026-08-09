@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Visualize — {{ branding.site_name }}{% endblock %}
+
+{% block content %}
+<div class="viz-layout">
+  <aside class="viz-sidebar">
+    <label for="viz-dataset">Dataset</label>
+    <select id="viz-dataset">
+      <option value="">Choose a dataset…</option>
+      {% for ds in datasets %}
+      <option value="{{ ds.id }}" {% if ds.id == selected_dataset %}selected{% endif %}>{{ ds.title }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="viz-dates">
+      <label>From <input type="date" id="viz-start"></label>
+      <label>To <input type="date" id="viz-end"></label>
+    </div>
+
+    <div id="viz-variables" class="viz-variables">
+      <p class="viz-placeholder">Choose a dataset to see its numeric variables.</p>
+    </div>
+  </aside>
+
+  <div class="viz-chart-area">
+    <p id="viz-status" class="viz-status"></p>
+    <div class="viz-chart-wrap">
+      <canvas id="viz-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="{{ root_path }}/static/vendor/chartjs/chart.umd.min.js"></script>
+<script src="{{ root_path }}/static/js/visualize.js" defer></script>
+
+<style>
+  .viz-layout {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) 1fr;
+    gap: 1.5rem;
+  }
+
+  .viz-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .viz-sidebar label {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  #viz-dataset {
+    padding: 0.4rem 0.6rem;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--brand-radius, 4px);
+  }
+
+  .viz-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .viz-dates label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: normal;
+  }
+
+  .viz-dates input {
+    padding: 0.25rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--brand-radius, 4px);
+  }
+
+  /* The variable list is the one part of the sidebar that can get long
+     (a dataset with many numeric variables) — it scrolls on its own, same
+     pattern as #dataset-panel .panel-meta-scroll. */
+  .viz-variables {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.6rem;
+  }
+
+  .viz-variables label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: normal;
+    font-size: 0.9rem;
+  }
+
+  .viz-placeholder {
+    color: var(--muted);
+    font-style: italic;
+    margin: 0;
+  }
+
+  .viz-chart-area {
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .viz-status {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 0.5rem;
+    min-height: 1.2em;
+  }
+
+  /* Chart.js's responsive resize observer sizes the <canvas> itself based on
+     this wrapper's box (position: relative + a real height from flex: 1) —
+     deliberately not setting width/height on the canvas directly, which
+     would fight Chart.js's own sizing logic (see options.responsive /
+     maintainAspectRatio: false in visualize.js). */
+  .viz-chart-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+  }
+
+  @media (max-width: 900px) {
+    .viz-layout {
+      display: block;
+    }
+
+    .viz-sidebar {
+      overflow-y: visible;
+      margin-bottom: 1rem;
+    }
+
+    .viz-chart-area {
+      height: 60vh;
+    }
+  }
+</style>
+{% endblock %}
