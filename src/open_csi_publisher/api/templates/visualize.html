@@ -24,7 +24,11 @@
   </aside>
 
   <div class="viz-chart-area">
-    <p id="viz-status" class="viz-status"></p>
+    <div class="viz-chart-toolbar">
+      <p id="viz-status" class="viz-status"></p>
+      <span class="viz-zoom-hint">Scroll to zoom, drag to pan</span>
+      <button type="button" id="viz-reset-zoom" class="viz-reset-zoom-btn">Reset zoom</button>
+    </div>
     <div id="viz-axis-ranges" class="viz-axis-ranges"></div>
     <div class="viz-chart-wrap">
       <canvas id="viz-chart"></canvas>
@@ -33,6 +37,11 @@
 </div>
 
 <script src="{{ root_path }}/static/vendor/chartjs/chart.umd.min.js"></script>
+<!-- Auto-registers itself against window.Chart as soon as this loads (no
+     Chart.register() call needed) -- must load after chart.umd.min.js and
+     before visualize.js. Wheel-zoom/drag-pan only; pinch/touch zoom would
+     also need hammerjs vendored, not done here (desktop-oriented tool). -->
+<script src="{{ root_path }}/static/vendor/chartjs-plugin-zoom/chartjs-plugin-zoom.umd.min.js"></script>
 <script src="{{ root_path }}/static/js/visualize.js" defer></script>
 
 <style>
@@ -125,12 +134,42 @@
     box-sizing: border-box;
   }
 
-  .viz-status {
+  .viz-chart-toolbar {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 0.5rem;
+  }
+
+  .viz-status {
+    flex: 1;
     color: var(--muted);
     font-size: 0.85rem;
-    margin: 0 0 0.5rem;
     min-height: 1.2em;
+    margin: 0;
+  }
+
+  .viz-zoom-hint {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+
+  .viz-reset-zoom-btn {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--brand-radius, 4px);
+    background: var(--brand-background, canvas);
+    color: var(--brand-primary, inherit);
+    cursor: pointer;
+  }
+
+  .viz-reset-zoom-btn:hover {
+    background: color-mix(in srgb, var(--brand-primary, canvastext) 10%, transparent);
   }
 
   /* One "<units> axis: min [__] max [__]" group per distinct units among

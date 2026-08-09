@@ -57,6 +57,15 @@
     startInput.addEventListener("change", refreshChart);
     endInput.addEventListener("change", refreshChart);
 
+    const resetZoomButton = document.getElementById("viz-reset-zoom");
+    if (resetZoomButton) {
+      resetZoomButton.addEventListener("click", () => {
+        if (chartInstance && typeof chartInstance.resetZoom === "function") {
+          chartInstance.resetZoom();
+        }
+      });
+    }
+
     // Server-rendered preselection (the ?dataset= deep-link from the
     // dataset panel's Visualize button) — read the already-rendered <select>
     // value rather than inventing a second, JS-facing channel for the same
@@ -275,7 +284,23 @@
         maintainAspectRatio: false,
         animation: false,
         scales: scales,
-        plugins: { legend: { display: true } },
+        plugins: {
+          legend: { display: true },
+          // chartjs-plugin-zoom (vendored, auto-registers itself once its
+          // <script> tag loads — see visualize.html) — wheel to zoom,
+          // click-drag to pan, both axes. Zoom/pan state resets whenever
+          // this chart is rebuilt (any variable/date-range/axis-range
+          // change destroys and recreates it, same as before) rather than
+          // being preserved across re-renders.
+          zoom: {
+            pan: { enabled: true, mode: "xy" },
+            zoom: {
+              wheel: { enabled: true },
+              pinch: { enabled: true },
+              mode: "xy",
+            },
+          },
+        },
       },
     });
   }

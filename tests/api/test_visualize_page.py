@@ -67,6 +67,21 @@ def test_visualize_page_includes_chartjs_and_own_script(client):
     assert "/static/js/visualize.js" in body
 
 
+def test_visualize_page_includes_zoom_plugin_after_chartjs(client):
+    # The plugin auto-registers itself against window.Chart when its script
+    # runs, so load order matters: chart.umd.min.js first, then the plugin.
+    body = client.get("/visualize").text
+    plugin_path = "/static/vendor/chartjs-plugin-zoom/chartjs-plugin-zoom.umd.min.js"
+    assert plugin_path in body
+    assert body.index("/static/vendor/chartjs/chart.umd.min.js") < body.index(plugin_path)
+    assert body.index(plugin_path) < body.index("/static/js/visualize.js")
+
+
+def test_visualize_page_includes_reset_zoom_button(client):
+    body = client.get("/visualize").text
+    assert 'id="viz-reset-zoom"' in body
+
+
 def test_visualize_page_includes_dataset_select_and_chart_canvas(client):
     body = client.get("/visualize").text
     assert 'id="viz-dataset"' in body

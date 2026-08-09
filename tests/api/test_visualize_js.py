@@ -96,6 +96,22 @@ def test_visualize_js_axis_range_override_persists_without_a_refetch():
     assert "lastBody" in content
 
 
+def test_visualize_js_enables_wheel_zoom_and_drag_pan():
+    # chartjs-plugin-zoom auto-registers itself once its <script> tag loads
+    # (confirmed against the real vendored build) -- no Chart.register() call
+    # needed here, just the plugin-specific chart config.
+    content = VISUALIZE_JS.read_text(encoding="utf-8")
+    assert "zoom:" in content
+    assert "wheel:" in content
+    assert "pan:" in content
+
+
+def test_visualize_js_wires_a_reset_zoom_button():
+    content = VISUALIZE_JS.read_text(encoding="utf-8")
+    assert "viz-reset-zoom" in content
+    assert "resetZoom" in content
+
+
 def test_visualize_js_formats_and_caps_x_axis_time_labels():
     # Raw ISO datetime strings ("2026-07-10T00:18:10") as category-scale
     # labels are unreadably dense and ugly once rotated — ticks are
