@@ -31,6 +31,11 @@
         endif %}
         <span>{{ branding.site_name }}</span>
       </a>
+      <nav class="site-nav">
+        <a href="{{ root_path }}/">Datasets</a>
+        <a href="{{ root_path }}/map">Map</a>
+        <a href="{{ root_path }}/visualize">Visualize</a>
+      </nav>
       {% if oidc_enabled %}
       <div class="site-header-auth">
         {% if user %}

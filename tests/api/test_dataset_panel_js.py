@@ -137,6 +137,7 @@ def test_dataset_panel_js_prefixes_every_url_with_the_configured_root_path():
     assert "${window.location.origin}${BASE_PATH}/opendap/datasets/${id}/opendap`" in content
     assert "${BASE_PATH}/datasets/${encodedId}/download.nc" in content
     assert "${BASE_PATH}/datasets/${encodedId}/download.csv" in content
+    assert "${BASE_PATH}/visualize?dataset=${id}" in content
 
 
 def test_dataset_panel_js_wraps_its_contents_in_an_iife_to_avoid_global_collisions():
@@ -154,10 +155,17 @@ def test_dataset_panel_js_wraps_its_contents_in_an_iife_to_avoid_global_collisio
     iife_open = (
         content.index("(function () {") if "(function () {" in content else content.index("(function() {")
     )
-    # the real declaration (with its actual RHS, unlike the explanatory
-    # comment above the IIFE which mentions "const BASE_PATH = ..." in prose)
-    # must come after the IIFE opens, not at top level
     assert content.index('const BASE_PATH = window.APP_ROOT_PATH || "";') > iife_open
+
+
+def test_dataset_panel_js_links_to_the_visualize_page():
+    # A 4th action, alongside download/OPeNDAP/metadata — jumps straight to
+    # /visualize with this dataset preselected (static/js/visualize.js reads
+    # the deep-link from the server-rendered <select>'s value).
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert "panel-chart-btn" in content
+    assert "${BASE_PATH}/visualize?dataset=${id}" in content
+    assert "ICON_CHART" in content
 
 
 def test_dataset_panel_js_guards_against_a_stale_fetch_response():

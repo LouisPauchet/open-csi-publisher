@@ -1,11 +1,12 @@
 // Dataset detail panel: clicking a listing row (or, via map.js, a map
 // marker) shows metadata and compact icon buttons to access the dataset —
-// OPeNDAP, NetCDF/CSV download, metadata + deployment history JSON — reusing
-// the exact same REST endpoints already built for that purpose rather than
-// duplicating any dataset-building logic here. Renders instantly from the
-// cheap data a caller already has, then fetches GET /datasets/{id} to fill
-// in everything build_dataset() computes (provenance, geospatial/time
-// coverage) that isn't cheap enough to embed in every listing row. Exposes
+// OPeNDAP, NetCDF/CSV download, metadata + deployment history JSON,
+// visualize as a time series — reusing the exact same REST endpoints
+// already built for that purpose rather than duplicating any
+// dataset-building logic here. Renders instantly from the cheap data a
+// caller already has, then fetches GET /datasets/{id} to fill in everything
+// build_dataset() computes (provenance, geospatial/time coverage) that
+// isn't cheap enough to embed in every listing row. Exposes
 // window.showDatasetPanel() so map.js can call it too.
 //
 // Wrapped in an IIFE: this file loads alongside map.js as a plain,
@@ -35,6 +36,11 @@
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>';
+
+  const ICON_CHART =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 3 4-6"/></svg>';
 
   document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".dataset-row").forEach((row) => {
@@ -165,6 +171,7 @@
       `<a href="${BASE_PATH}/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
       `</div>` +
       `</div>` +
+      `<a class="panel-action-btn panel-chart-btn" href="${BASE_PATH}/visualize?dataset=${id}" title="Visualize data">${ICON_CHART}</a>` +
       `</div>` +
       `<p><code>${escapeHtml(dataset.id)}</code>` +
       (dataset.platform_type ? ` &middot; ${escapeHtml(dataset.platform_type)}` : "") +

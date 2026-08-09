@@ -78,6 +78,22 @@ a:hover {
   width: auto;
 }
 
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.site-nav a {
+  text-decoration: none;
+  color: var(--brand-secondary, inherit);
+}
+
+.site-nav a:hover {
+  color: var(--brand-link-hover, #0645ad);
+}
+
 .site-header-auth {
   display: flex;
   align-items: center;

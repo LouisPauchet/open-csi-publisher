@@ -51,6 +51,12 @@ def test_map_page_reflects_default_unis_branding(client):
     assert "--brand-primary: #006199" in body
 
 
+def test_visualize_page_reflects_default_unis_branding(client):
+    body = client.get("/visualize").text
+    assert "unis-logo-liggende.svg" in body
+    assert "--brand-primary: #006199" in body
+
+
 def test_listing_page_reflects_a_custom_branding_file(client, tmp_path, monkeypatch):
     branding_path = tmp_path / "branding.yaml"
     branding_path.write_text(
@@ -93,6 +99,26 @@ def test_map_page_includes_project_creator_credit(client):
     body = client.get("/map").text
     assert 'class="site-footer"' in body
     assert "Louis Pauchet" in body
+
+
+def test_visualize_page_includes_project_creator_credit(client):
+    body = client.get("/visualize").text
+    assert 'class="site-footer"' in body
+    assert "Louis Pauchet" in body
+
+
+@pytest.mark.parametrize("path", ["/", "/map", "/visualize"])
+def test_header_nav_links_to_every_page(client, path):
+    # base.html had zero cross-page navigation before this feature — /map
+    # was only reachable by a typed URL. Every page must now offer the same
+    # three links, not just the one it's currently on.
+    body = client.get(path).text
+    assert 'class="site-nav"' in body
+    assert 'href="/"' in body
+    assert 'href="/map"' in body
+    assert 'href="/visualize"' in body
+
+
 def _set_full_oidc_config(monkeypatch) -> None:
     monkeypatch.setattr(settings_module.settings, "oidc_issuer", "https://example.com/issuer")
     monkeypatch.setattr(settings_module.settings, "oidc_client_id", "client-id")
@@ -100,7 +126,7 @@ def _set_full_oidc_config(monkeypatch) -> None:
     monkeypatch.setattr(settings_module.settings, "session_secret_key", "session-secret")
 
 
-@pytest.mark.parametrize("path", ["/", "/map"])
+@pytest.mark.parametrize("path", ["/", "/map", "/visualize"])
 def test_header_shows_login_link_when_oidc_configured_and_anonymous(client, monkeypatch, path):
     _set_full_oidc_config(monkeypatch)
     body = client.get(path).text
@@ -108,7 +134,7 @@ def test_header_shows_login_link_when_oidc_configured_and_anonymous(client, monk
     assert 'href="/auth/logout"' not in body
 
 
-@pytest.mark.parametrize("path", ["/", "/map"])
+@pytest.mark.parametrize("path", ["/", "/map", "/visualize"])
 def test_header_shows_username_and_logout_link_when_authenticated(app, client, monkeypatch, path):
     _set_full_oidc_config(monkeypatch)
     app.dependency_overrides[get_current_user] = lambda: User(subject="u1", email="a@b.com")
@@ -120,7 +146,7 @@ def test_header_shows_username_and_logout_link_when_authenticated(app, client, m
     assert 'href="/auth/login"' not in body
 
 
-@pytest.mark.parametrize("path", ["/", "/map"])
+@pytest.mark.parametrize("path", ["/", "/map", "/visualize"])
 def test_header_shows_no_auth_ui_when_oidc_not_configured(client, path):
     body = client.get(path).text
     assert 'href="/auth/login"' not in body
