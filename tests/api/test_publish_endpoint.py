@@ -159,6 +159,17 @@ def test_generates_and_returns_valid_netcdf(client):
 
 
 @requires_mount
+def test_publish_is_exempt_from_the_dataset_size_cap(client, monkeypatch):
+    # The publish endpoint is already self-bounded to one calendar month per
+    # call and is a trusted, API-key-gated server-to-server path — an
+    # absurdly tiny cap (which would 413 any ordinary /download.nc request)
+    # must not block it.
+    monkeypatch.setattr(settings_module.settings, "max_dataset_build_bytes", 1)
+    response = client.get(f"/publish/kapp_thordsen_10minute/{SETTLED_PERIOD}", headers=_auth_headers())
+    assert response.status_code == 200
+
+
+@requires_mount
 def test_second_request_is_cached_not_regenerated(client):
     with patch.object(builder_module, "build_dataset", wraps=builder_module.build_dataset) as spy:
         first = client.get(f"/publish/kapp_thordsen_10minute/{SETTLED_PERIOD}", headers=_auth_headers())

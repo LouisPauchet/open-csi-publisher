@@ -12,13 +12,20 @@ from loguru import logger
 
 from open_csi_publisher.core.config_schema import LoggerNetSourceConfig
 from open_csi_publisher.core.models import FileRecord
-from open_csi_publisher.providers.base import DataProvider
-from open_csi_publisher.providers.data.loggernet.fileset import classify_files, reconcile_fileset
+from open_csi_publisher.providers.base import DataProvider, empty_dataset
+from open_csi_publisher.providers.data.loggernet.fileset import (
+    AmbiguousFileSetError,
+    ClassifiedFile,
+    classify_files,
+    count_live_candidates,
+    reconcile_fileset,
+)
 from open_csi_publisher.providers.data.loggernet.toa5 import (
     ParsedToa5File,
     Toa5FormatError,
     parse_toa5_file,
     parse_toa5_header,
+    parse_toa5_start_time,
 )
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.cache import NullParseCache, ParseCache
@@ -33,32 +40,41 @@ class LoggerNetDataProvider(DataProvider):
         self, source_config: LoggerNetSourceConfig, previous: Sequence[FileRecord] = ()
     ) -> list[FileRecord]:
         matched = self.matched_files(source_config)
-        classified = classify_files(matched, historical_suffix=source_config.historical_suffix)
+        try:
+            classified = classify_files(matched, historical_suffix=source_config.historical_suffix)
+        except AmbiguousFileSetError:
+            if count_live_candidates(matched, historical_suffix=source_config.historical_suffix) == 0:
+                logger.warning(
+                    "no live file yet for {} — treating as no data available",
+                    source_config.file_pattern,
+                )
+                return []
+            raise  # >1 live file: a genuine misconfiguration, not "no data yet"
         previous_by_name = {r.file_name: r for r in previous}
-
-        records: list[FileRecord] = []
         n_parsed = 0
-        for c in classified:
-            rel_name = c.path.relative_to(self._data_root).as_posix()
-            prev = previous_by_name.get(rel_name)
 
-            if c.role == "archived":
-                if prev is not None and prev.status == "closed":
-                    records.append(prev)  # closed archived files are never reparsed
-                else:
-                    records.append(self._parse_record(c.path, rel_name, "archived", "closed", source_config))
-                    n_parsed += 1
-                continue
+        # Live file: unchanged behavior — full parse only when its size
+        # actually changed since the last check.
+        live_classified = next(c for c in classified if c.role == "live")  # exactly one, per classify_files
+        live_rel_name = live_classified.path.relative_to(self._data_root).as_posix()
+        live_prev = previous_by_name.get(live_rel_name)
+        current_size = live_classified.path.stat().st_size
+        if live_prev is None or live_prev.size != current_size:
+            live_record = self._parse_record(live_classified.path, live_rel_name, "live", "active", source_config)
+            n_parsed += 1
+        elif live_prev.status == "active":
+            live_record = replace(live_prev, status="closed")  # unchanged since last check
+        else:
+            live_record = live_prev  # already closed, belt-and-suspenders re-stat confirmed no change
 
-            # live: at most one, per classify_files
-            current_size = c.path.stat().st_size
-            if prev is None or prev.size != current_size:
-                records.append(self._parse_record(c.path, rel_name, "live", "active", source_config))
-                n_parsed += 1
-            elif prev.status == "active":
-                records.append(replace(prev, status="closed"))  # unchanged since last check
-            else:
-                records.append(prev)  # already closed, belt-and-suspenders re-stat confirmed no change
+        archived_records, archived_n_parsed = self._archived_records(
+            [c for c in classified if c.role == "archived"],
+            previous_by_name,
+            live_record,
+            source_config,
+        )
+        n_parsed += archived_n_parsed
+        records = archived_records + [live_record]
 
         logger.info(
             "file index for {}: {} files matched, {} newly parsed, {} reused from previous index",
@@ -69,6 +85,58 @@ class LoggerNetDataProvider(DataProvider):
         )
         return records
 
+    def _archived_records(
+        self,
+        archived_classified: list[ClassifiedFile],
+        previous_by_name: dict[str, FileRecord],
+        live_record: FileRecord,
+        source_config: LoggerNetSourceConfig,
+    ) -> tuple[list[FileRecord], int]:
+        """Builds each archived file's FileRecord. A closed, already-known file is
+        reused verbatim (never touched again). Any other archived file only has its
+        first timestamp read (parse_toa5_start_time — never a full-body parse); its
+        time_end is derived afterward as the next (chronologically later) file's
+        time_start, or the live file's time_start for the last one — always >= the
+        file's own true last timestamp, so core/builder.py's _select_files_covering()
+        can only become more inclusive under this approximation, never drop real
+        data. This is what makes file-index refresh cheap regardless of how many
+        archived files a station has accumulated.
+        """
+        candidates: list[tuple[str, Path, FileRecord | None, datetime | None]] = []
+        n_parsed = 0
+        for c in archived_classified:
+            rel_name = c.path.relative_to(self._data_root).as_posix()
+            prev = previous_by_name.get(rel_name)
+            if prev is not None and prev.status == "closed":
+                candidates.append((rel_name, c.path, prev, prev.time_start))
+                continue
+            start = parse_toa5_start_time(c.path, timestamp_column=source_config.timestamp_column)
+            n_parsed += 1
+            candidates.append((rel_name, c.path, None, start))
+
+        candidates.sort(key=lambda item: item[3] or datetime.min)
+
+        records: list[FileRecord] = []
+        for i, (rel_name, path, prev, start) in enumerate(candidates):
+            if prev is not None:
+                records.append(prev)  # already fully known, untouched
+                continue
+            next_start = candidates[i + 1][3] if i + 1 < len(candidates) else live_record.time_start
+            header = parse_toa5_header(path)
+            variables = [name for name in header.column_names if name != source_config.timestamp_column]
+            records.append(
+                FileRecord(
+                    file_name=rel_name,
+                    file_role="archived",
+                    size=path.stat().st_size,
+                    time_start=start,
+                    time_end=next_start,
+                    variables=variables,
+                    status="closed",
+                )
+            )
+        return records, n_parsed
+
     def read_range(
         self,
         source_config: LoggerNetSourceConfig,
@@ -77,6 +145,9 @@ class LoggerNetDataProvider(DataProvider):
         end: datetime | None,
         variables: list[str] | None = None,
     ) -> xr.Dataset:
+        if not files:
+            return empty_dataset()
+
         archived_parsed = [
             self._parse_selected(f, source_config, variables)
             for f in files

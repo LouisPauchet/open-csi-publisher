@@ -9,7 +9,7 @@ import xarray as xr
 
 from open_csi_publisher.core.config_schema import ThingsBoardSourceConfig
 from open_csi_publisher.core.models import FileRecord
-from open_csi_publisher.providers.base import DataProvider
+from open_csi_publisher.providers.base import DataProvider, empty_dataset
 from open_csi_publisher.providers.thingsboard_client import ThingsBoardClient
 
 
@@ -67,11 +67,11 @@ class ThingsBoardDataProvider(DataProvider):
         variables: list[str] | None = None,
     ) -> xr.Dataset:
         if not files or files[0].time_end is None:
-            return _empty_dataset()
+            return empty_dataset()
 
         device = self._client.get_device_by_name(source_config.device_name)
         if device is None:
-            return _empty_dataset()
+            return empty_dataset()
         device_id = device["id"]["id"]
 
         keys = variables if variables is not None else sorted(self._client.get_latest_telemetry(device_id))
@@ -93,14 +93,10 @@ def _telemetry_to_dataset(raw: dict[str, list[tuple[int, Any]]]) -> xr.Dataset:
         series[key] = pd.Series([p[1] for p in points], index=index)
 
     if not series:
-        return _empty_dataset()
+        return empty_dataset()
 
     df = pd.DataFrame(series).rename_axis("time").sort_index()
     return xr.Dataset.from_dataframe(df)
-
-
-def _empty_dataset() -> xr.Dataset:
-    return xr.Dataset(coords={"time": pd.DatetimeIndex([], name="time")})
 
 
 def _to_epoch_ms(value: datetime) -> int:

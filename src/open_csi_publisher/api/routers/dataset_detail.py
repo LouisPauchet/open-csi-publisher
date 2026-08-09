@@ -18,7 +18,7 @@ from open_csi_publisher.api.schemas import (
     TimeCoverage,
     VariableDetail,
 )
-from open_csi_publisher.core.builder import build_dataset
+from open_csi_publisher.core.builder import build_dataset, build_dataset_summary
 from open_csi_publisher.core.config_versioning import get_versioned_config
 from open_csi_publisher.core.export import render_csv_with_metadata_header, to_wide_dataframe
 from open_csi_publisher.sources import DatasetLocation
@@ -37,32 +37,30 @@ def get_dataset_detail(
     )
     require_visible(config, user)
 
-    # The full dataset (not just the file index) is built here — more work
-    # than this route used to do, but it's what makes `metadata` below able
-    # to carry everything build_dataset() computes (provenance, geospatial/
-    # time coverage), not just the static config-declared fields. Same cost
-    # /data and the downloads already pay for the same reason.
-    ds = build_dataset(
+    # Deliberately NOT the full dataset (unlike /data and the downloads,
+    # which need real data and already accept an explicit start/end range to
+    # bound it): this route has no start/end parameter at all and is hit on
+    # every dataset page view, so for a station spanning hundreds of files
+    # and 100+ GB of history, building everything just to report a time
+    # range and a few attributes would be the single biggest resource risk
+    # in the whole app. build_dataset_summary() stays cheap regardless of
+    # dataset size — see its docstring (core/builder.py) for exactly what it
+    # does and doesn't read.
+    metadata, coverage_span = build_dataset_summary(
         location.dataset_id,
         session=session,
         config_provider=location.config_provider,
         data_provider=location.data_provider,
     )
 
-    time_values = ds["time"].values
     coverage = (
-        TimeCoverage(
-            start=pd.Timestamp(time_values.min()).to_pydatetime(),
-            end=pd.Timestamp(time_values.max()).to_pydatetime(),
-        )
-        if time_values.size > 0
-        else None
+        TimeCoverage(start=coverage_span[0], end=coverage_span[1]) if coverage_span is not None else None
     )
 
     return DatasetDetail(
         id=config.id,
         title=config.metadata.title,
-        metadata=dict(ds.attrs),
+        metadata=metadata,
         platform_type=config.platform_type,
         access=config.access,
         variables=[

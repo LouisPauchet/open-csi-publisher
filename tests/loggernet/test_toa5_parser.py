@@ -11,6 +11,7 @@ from open_csi_publisher.providers.data.loggernet.toa5 import (
     Toa5FormatError,
     parse_toa5_file,
     parse_toa5_header,
+    parse_toa5_start_time,
 )
 
 from ..conftest import requires_mount
@@ -183,6 +184,68 @@ def test_parse_toa5_header_rejects_wrong_field_count(tmp_path):
     )
     with pytest.raises(Toa5FormatError):
         parse_toa5_header(path)
+
+
+# --- parse_toa5_start_time: cheap first-line-only read ---------------------------
+
+
+@requires_mount
+def test_parse_toa5_start_time_matches_full_parse(mount_root):
+    cheap = parse_toa5_start_time(mount_root / ISFJORD_LIVE)
+    full = parse_toa5_file(mount_root / ISFJORD_LIVE)
+    assert cheap == full.time_start == datetime(2026, 7, 18, 19, 52, 40)
+
+
+@requires_mount
+def test_parse_toa5_start_time_empty_file_is_none(mount_root, tmp_path):
+    header_lines = (mount_root / ISFJORD_LIVE).read_text(encoding="utf-8").splitlines()[:4]
+    empty_file = tmp_path / "empty.dat"
+    empty_file.write_bytes(("\r\n".join(header_lines) + "\r\n").encode("utf-8"))
+
+    assert parse_toa5_start_time(empty_file) is None
+
+
+def test_parse_toa5_start_time_falls_back_to_flexible_parsing(tmp_path):
+    path = tmp_path / "odd_timestamps.dat"
+    path.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","AirT_C"\n'
+        '"TS","RN","Deg C"\n'
+        '"","Smp","Avg"\n'
+        '"01/01/2026 00:00:00",0,1.0\n',
+        encoding="utf-8",
+    )
+    assert parse_toa5_start_time(path) == datetime(2026, 1, 1, 0, 0, 0)
+
+
+def test_parse_toa5_start_time_rejects_non_toa5_file(tmp_path):
+    path = tmp_path / "not_toa5.dat"
+    path.write_text(
+        '"FOO5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Var1"\n'
+        '"TS","RN","Volts"\n'
+        '"","Smp","Avg"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(Toa5FormatError):
+        parse_toa5_start_time(path)
+
+
+@requires_mount
+@pytest.mark.slow
+def test_large_historical_file_start_time_is_fast_and_correct(mount_root):
+    # The whole point of parse_toa5_start_time(): get the same first timestamp
+    # a full parse would report, without reading the rest of a huge file.
+    path = mount_root / FIVELFLYENE_MIN_HISTORICAL
+    full = parse_toa5_file(path)
+
+    started = time.monotonic()
+    cheap = parse_toa5_start_time(path)
+    cheap_elapsed = time.monotonic() - started
+
+    assert cheap == full.time_start
+    print(f"\n[slow] cheap start-time read of {path.name} took {cheap_elapsed:.4f}s")
+    assert cheap_elapsed < 1.0
 
 
 @requires_mount

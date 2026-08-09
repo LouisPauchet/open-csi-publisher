@@ -80,24 +80,52 @@ def test_detail_time_coverage_matches_known_real_bounds(client):
 
 
 @requires_mount
-def test_detail_metadata_includes_computed_provenance_and_coverage_attrs(client):
-    # The detail route builds the full dataset (like /data and the downloads
-    # do) specifically so `metadata` can carry everything build_dataset()
-    # computes, not just the static config-declared fields — the frontend
-    # detail panel relies on this to show "all the available metadata".
-    body = client.get("/datasets/hanna_resvoll_10min").json()
+def test_detail_metadata_includes_provenance_and_coverage_attrs(client):
+    # The detail route (Fix H) no longer builds the full dataset — metadata
+    # comes from build_dataset_summary(), which is cheap regardless of
+    # dataset size: file-index-derived time coverage, static/deployment-
+    # config-derived geospatial bounds for a fixed station, and provenance
+    # attrs that don't need any data read at all.
+    body = client.get("/datasets/kapp_thordsen_10minute").json()
     metadata = body["metadata"]
-    assert metadata["unis_id"] == "hanna_resvoll_10min"
+    assert metadata["unis_id"] == "kapp_thordsen_10minute"
     assert "id" not in metadata
     assert metadata["processing_software_version"]
     assert metadata["config_hash"]
     assert "history" in metadata
     assert metadata["time_coverage_start"]
     assert metadata["time_coverage_end"]
+    assert metadata["geospatial_lat_min"] == 78.5
+    assert metadata["geospatial_lat_max"] == 78.5
+
+
+@requires_mount
+def test_detail_metadata_mobile_station_geospatial_bounds_from_live_file(client):
+    # A mobile station's geospatial bounds come from its current live file
+    # only (cheap — a single file), not a full-history scan — see
+    # build_dataset_summary()'s docstring (core/builder.py).
+    body = client.get("/datasets/hanna_resvoll_10min").json()
+    metadata = body["metadata"]
     assert "geospatial_lat_min" in metadata
     assert "geospatial_lat_max" in metadata
     assert "geospatial_lon_min" in metadata
     assert "geospatial_lon_max" in metadata
+
+
+@requires_mount
+def test_detail_route_never_reads_file_data(client, monkeypatch):
+    # The whole point of Fix H: viewing a dataset's detail page must stay
+    # cheap regardless of how many files/how much history that dataset has.
+    import open_csi_publisher.providers.data.loggernet.provider as loggernet_provider_module
+
+    def _fail_if_called(self, *args, **kwargs):
+        raise AssertionError("read_range must not be called by the detail route")
+
+    monkeypatch.setattr(
+        loggernet_provider_module.LoggerNetDataProvider, "read_range", _fail_if_called
+    )
+    response = client.get("/datasets/kapp_thordsen_10minute")
+    assert response.status_code == 200
 
 
 def test_detail_unknown_id_404(client):

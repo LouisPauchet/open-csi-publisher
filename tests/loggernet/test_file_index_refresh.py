@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime
 from typing import Sequence
 
+import pytest
+
+from open_csi_publisher import settings as settings_module
 from open_csi_publisher.core.models import FileRecord
+from open_csi_publisher.core.timeouts import DatasetBuildTimeoutError
 from open_csi_publisher.index.service import refresh_and_get_index
 from open_csi_publisher.providers.base import DataProvider
 
@@ -54,6 +59,18 @@ class FakeDataProvider(DataProvider):
         raise NotImplementedError
 
 
+class SlowDataProvider(DataProvider):
+    """Simulates a stalled network-mounted file read (rclone/S3) — get_file_index
+    never returns within any reasonable test timeout."""
+
+    def get_file_index(self, source_config, previous: Sequence[FileRecord] = ()) -> list[FileRecord]:
+        time.sleep(5)
+        return []
+
+    def read_range(self, source_config, files, start, end, variables=None):
+        raise NotImplementedError
+
+
 def test_first_refresh_calls_provider_with_no_previous_state(db_session):
     provider = FakeDataProvider([[ARCHIVED, LIVE_V1]])
     result = refresh_and_get_index(db_session, "station_a", source_config=None, data_provider=provider)
@@ -82,3 +99,11 @@ def test_refresh_is_isolated_per_dataset(db_session):
 
     assert provider_a.calls[0] == []
     assert provider_b.calls[0] == []  # station_b's refresh must not see station_a's files
+
+
+def test_refresh_raises_dataset_build_timeout_error_when_provider_hangs(db_session, monkeypatch):
+    monkeypatch.setattr(settings_module.settings, "dataset_build_timeout_seconds", 0.05)
+    with pytest.raises(DatasetBuildTimeoutError):
+        refresh_and_get_index(
+            db_session, "station_a", source_config=None, data_provider=SlowDataProvider()
+        )

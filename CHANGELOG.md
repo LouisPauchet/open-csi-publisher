@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.5.0...open-csi-publisher-v0.6.0) (2026-08-07)
+
+
+### Features
+
+* **settings:** add root_path setting for reverse-proxy subpath deployments ([92307bb](https://github.com/LouisPauchet/open-csi-publisher/commit/92307bb8226d34d8104b825dec7d0e47327c2ec5))
+* support mounting under a subpath + CI coverage reporting ([6ad8801](https://github.com/LouisPauchet/open-csi-publisher/commit/6ad8801ab2557b9ef9106c2a9c05283aa8c4873f))
+* **web:** prefix map/dataset-panel JS URLs with window.APP_ROOT_PATH ([0093138](https://github.com/LouisPauchet/open-csi-publisher/commit/00931386073ef50cd0827484a6230a7c781c37c7))
+* **web:** prefix templates, redirects, and publish URLs with root_path ([ca1d916](https://github.com/LouisPauchet/open-csi-publisher/commit/ca1d91610584ce2c8c1b370497001f7eb84a6f6a))
+
+
+### Documentation
+
+* document ROOT_PATH subpath deployment ([56c1726](https://github.com/LouisPauchet/open-csi-publisher/commit/56c17261c06e57acf4eba39814e932dd5c6f6e08))
+
 ## [0.5.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.4.1...open-csi-publisher-v0.5.0) (2026-08-05)
 
 

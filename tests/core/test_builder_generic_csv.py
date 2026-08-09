@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from open_csi_publisher import settings as settings_module
 from open_csi_publisher.core.builder import build_dataset
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
 from open_csi_publisher.providers.data.generic_csv.provider import GenericCsvDataProvider
@@ -50,6 +51,22 @@ def test_build_dataset_end_to_end_against_a_wholly_different_source_type(
     assert (ds["longitude"].values == 10.0).all()
 
     assert ds.attrs["title"] == "Generic CSV Demo Station"
+
+
+def test_build_dataset_size_cap_does_not_apply_to_generic_csv(db_session, config_provider, data_provider, monkeypatch):
+    # The size cap (core/builder.py's DatasetTooLargeError) only makes sense
+    # for loggernet, where FileRecord.size is a genuine byte count and many
+    # files can be concatenated together. generic_csv is always exactly one
+    # file — an absurdly tiny cap here must still succeed, proving the check
+    # is scoped by config.source_type, not blindly applied to every provider.
+    monkeypatch.setattr(settings_module.settings, "max_dataset_build_bytes", 1)
+    ds = build_dataset(
+        "generic_csv_demo",
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=data_provider,
+    )
+    assert ds.sizes["time"] == 5
 
 
 def test_build_dataset_time_window_and_variable_filter(db_session, config_provider, data_provider):
