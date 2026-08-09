@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.7.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.6.0...open-csi-publisher-v0.7.0) (2026-08-09)
+
+
+### Features
+
+* **loggernet:** add cheap first-line-only TOA5 time-start parser ([0a75204](https://github.com/LouisPauchet/open-csi-publisher/commit/0a75204ea1fe68b755da2f56298bed52650ccaa0))
+* **settings:** add dataset build timeout and max size env vars ([683af28](https://github.com/LouisPauchet/open-csi-publisher/commit/683af285b3e7a62534624a385488da0ed25e09cb))
+* **web:** add a /visualize page for plotting dataset variables ([08a31a3](https://github.com/LouisPauchet/open-csi-publisher/commit/08a31a39398845d4ddd43bc639a1d3902fcafde1))
+* **web:** add manual y-axis range control and shorter x-axis labels ([3940f06](https://github.com/LouisPauchet/open-csi-publisher/commit/3940f06355fa7d8c23c909636edb2e8ef6f25580))
+* **web:** link to Visualize from the header nav and dataset panel ([b4ea678](https://github.com/LouisPauchet/open-csi-publisher/commit/b4ea67877ea9d295c4c177e50e3dce017a8b1d6d))
+* **web:** make the visualize chart's axes interactive ([cfd22b8](https://github.com/LouisPauchet/open-csi-publisher/commit/cfd22b84a37880107e2b81afe6189b59f486ddd5))
+* **web:** vendor Chart.js for the upcoming visualization page ([f3dcf14](https://github.com/LouisPauchet/open-csi-publisher/commit/f3dcf148066ec582c4b36917972c9595a49de999))
+* **web:** vendor chartjs-plugin-zoom for interactive chart axes ([3b33455](https://github.com/LouisPauchet/open-csi-publisher/commit/3b33455048ac8e3642a9206d9e623230787c7759))
+
+
+### Bug Fixes
+
+* **api:** log and map every unhandled exception instead of a silent 500 ([371d153](https://github.com/LouisPauchet/open-csi-publisher/commit/371d1535b982ada5dea4be3a8ef4d80950a8f028))
+* **core:** bound dataset build provider calls with a timeout ([500bd52](https://github.com/LouisPauchet/open-csi-publisher/commit/500bd52ebdf753691c04819c884ddec984fe14d2))
+* **core:** cap total bytes read per build, exempt the publish endpoint ([410eaca](https://github.com/LouisPauchet/open-csi-publisher/commit/410eaca53a6db8893401f900ce77a180f71d8c54))
+* **opendap:** exclude datasets too large to fully cache, harden get_dataset() ([2152711](https://github.com/LouisPauchet/open-csi-publisher/commit/21527117ce3a34cb477f2cb6fe9420871de59b7f))
+* **providers:** degrade gracefully instead of crashing on "no data yet" ([8eeacb2](https://github.com/LouisPauchet/open-csi-publisher/commit/8eeacb2fead6916b190048ea52b86ff2b3be9c67))
+* **sources:** one broken source must not break every dataset ([52c01e0](https://github.com/LouisPauchet/open-csi-publisher/commit/52c01e09ebe61aee79c3d3f2ed1b156c04725372))
+* **web:** render mobile track as a bounding box instead of a full polyline ([25617ac](https://github.com/LouisPauchet/open-csi-publisher/commit/25617ace19b09dfc2245cb73f6bdf4c2efc6e3e0))
+* **web:** scope map.js and dataset_panel.js to avoid a global BASE_PATH clash ([15101a9](https://github.com/LouisPauchet/open-csi-publisher/commit/15101a928426ff6db078a6065e4d6d98da57f243))
+* **web:** scope map.js to avoid a global BASE_PATH clash ([d28e505](https://github.com/LouisPauchet/open-csi-publisher/commit/d28e5053aabbe23eb7693afc8de05ddca1bff7f5))
+
+
+### Performance Improvements
+
+* **api:** stop building the full dataset just to view its detail page ([1c76da8](https://github.com/LouisPauchet/open-csi-publisher/commit/1c76da8af2519b64f770bf5cb541889aeed2e419))
+* **loggernet:** build archived-file time bounds without a full parse ([39cb8d2](https://github.com/LouisPauchet/open-csi-publisher/commit/39cb8d2e684cb90b1e2f11547e3ea9ad6b99f6be))
+
 ## [0.6.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.5.0...open-csi-publisher-v0.6.0) (2026-08-07)
 
 
