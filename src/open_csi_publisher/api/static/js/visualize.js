@@ -25,6 +25,16 @@
 
   let chartInstance = null;
   let currentDatasetId = null;
+  // The most recent successful /data response, so adjusting an axis range
+  // (see applyAxisRangeOverride) can just re-render, not refetch.
+  let lastBody = null;
+  let lastCheckedCheckboxes = null;
+  // Chart.js auto-scales each axis from the data, which one sensor fill/
+  // error-value outlier can squash flat — keyed by units string (the same
+  // key axes are grouped by) rather than dataset id, so a manually-set
+  // range survives re-renders and switching between variables that share
+  // the same units.
+  const axisRangeOverrides = {};
 
   function init() {
     const datasetSelect = document.getElementById("viz-dataset");
@@ -161,6 +171,8 @@
       return;
     }
 
+    lastBody = body;
+    lastCheckedCheckboxes = checked;
     renderChart(body, checked);
     setStatus("");
   }
@@ -185,7 +197,25 @@
 
     const times = body.time || [];
     const axisIdByUnits = new Map();
-    const scales = { x: { type: "category", ticks: { autoSkip: true } } };
+    const scales = {
+      x: {
+        type: "category",
+        ticks: {
+          autoSkip: true,
+          maxTicksLimit: 12, // a hard cap regardless of how many points are plotted
+          maxRotation: 45,
+          minRotation: 0,
+          // For a category scale, Chart.js's tick `value` is the label's
+          // index into `data.labels`, not the label text — resolve back to
+          // the actual ISO string via the scale's own getLabelForValue,
+          // then shorten it (the raw "2026-07-10T00:18:10" strings this
+          // page fetches are unreadably dense once rotated).
+          callback: function (value) {
+            return formatTimeLabel(this.getLabelForValue(value));
+          },
+        },
+      },
+    };
     const datasets = [];
     let colorIndex = 0;
 
@@ -196,11 +226,15 @@
       if (!axisIdByUnits.has(units)) {
         const axisId = axisIdByUnits.size === 0 ? "y" : `y${axisIdByUnits.size}`;
         axisIdByUnits.set(units, axisId);
-        scales[axisId] = {
+        const axisConfig = {
           type: "linear",
           position: axisIdByUnits.size % 2 === 1 ? "left" : "right",
           title: { display: !!units, text: units },
         };
+        const override = axisRangeOverrides[units];
+        if (override && typeof override.min === "number") axisConfig.min = override.min;
+        if (override && typeof override.max === "number") axisConfig.max = override.max;
+        scales[axisId] = axisConfig;
       }
       const axisId = axisIdByUnits.get(units);
 
@@ -230,7 +264,9 @@
       });
     });
 
-    clearChart();
+    renderAxisRangeControls(axisIdByUnits);
+
+    destroyChart();
     chartInstance = new Chart(canvas, {
       type: "line",
       data: { labels: times, datasets: datasets },
@@ -244,7 +280,73 @@
     });
   }
 
+  // One "<units> axis: min [__] max [__]" control group per distinct units
+  // among the currently checked variables. Rebuilt on every renderChart()
+  // call, pre-filled from axisRangeOverrides so an in-progress edit survives
+  // a variable/date-range change that triggers a re-render.
+  function renderAxisRangeControls(axisIdByUnits) {
+    const container = document.getElementById("viz-axis-ranges");
+    if (!container) return;
+
+    if (axisIdByUnits.size === 0) {
+      container.innerHTML = "";
+      return;
+    }
+
+    container.innerHTML = Array.from(axisIdByUnits.keys())
+      .map((units) => {
+        const override = axisRangeOverrides[units] || {};
+        const minValue = typeof override.min === "number" ? override.min : "";
+        const maxValue = typeof override.max === "number" ? override.max : "";
+        const label = units ? escapeHtml(units) : "no units";
+        return (
+          `<label class="viz-axis-range-group">` +
+          `${label} axis:` +
+          ` <input type="number" class="viz-axis-min" data-units="${escapeHtml(units)}" placeholder="min" step="any" value="${minValue}">` +
+          ` – ` +
+          `<input type="number" class="viz-axis-max" data-units="${escapeHtml(units)}" placeholder="max" step="any" value="${maxValue}">` +
+          `</label>`
+        );
+      })
+      .join("");
+
+    container.querySelectorAll(".viz-axis-min").forEach((input) => {
+      input.addEventListener("change", () => applyAxisRangeOverride(input.dataset.units, "min", input.value));
+    });
+    container.querySelectorAll(".viz-axis-max").forEach((input) => {
+      input.addEventListener("change", () => applyAxisRangeOverride(input.dataset.units, "max", input.value));
+    });
+  }
+
+  function applyAxisRangeOverride(units, field, rawValue) {
+    if (!axisRangeOverrides[units]) axisRangeOverrides[units] = {};
+    const parsed = rawValue === "" ? null : parseFloat(rawValue);
+    axisRangeOverrides[units][field] = Number.isNaN(parsed) ? null : parsed;
+
+    // Re-render from the already-fetched data — no need to hit the network
+    // again just because the displayed range changed.
+    if (lastBody && lastCheckedCheckboxes) {
+      renderChart(lastBody, lastCheckedCheckboxes);
+    }
+  }
+
+  // Short, fixed-width local-ish label ("07-10 00:18") instead of a full ISO
+  // timestamp — this page doesn't need calendar-correct locale formatting,
+  // just something compact enough not to overwhelm the axis once rotated.
+  function formatTimeLabel(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   function clearChart() {
+    destroyChart();
+    const rangesContainer = document.getElementById("viz-axis-ranges");
+    if (rangesContainer) rangesContainer.innerHTML = "";
+  }
+
+  function destroyChart() {
     if (chartInstance) {
       chartInstance.destroy();
       chartInstance = null;

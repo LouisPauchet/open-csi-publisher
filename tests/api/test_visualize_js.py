@@ -76,3 +76,32 @@ def test_visualize_js_does_not_reference_an_external_cdn():
 def test_visualize_js_prefixes_every_url_with_the_configured_root_path():
     content = VISUALIZE_JS.read_text(encoding="utf-8")
     assert 'const BASE_PATH = window.APP_ROOT_PATH || "";' in content
+
+
+def test_visualize_js_offers_a_manual_axis_range_override():
+    # Chart.js's auto-scaled range gets squashed flat by a single sensor
+    # fill/error-value outlier — a manual min/max override per axis lets the
+    # user clamp the view themselves rather than requiring server/client
+    # outlier-filtering heuristics.
+    content = VISUALIZE_JS.read_text(encoding="utf-8")
+    assert "axisRangeOverrides" in content
+    assert "viz-axis-min" in content
+    assert "viz-axis-max" in content
+
+
+def test_visualize_js_axis_range_override_persists_without_a_refetch():
+    # Adjusting the range shouldn't need a new network round-trip — the last
+    # fetched response is cached and just re-rendered.
+    content = VISUALIZE_JS.read_text(encoding="utf-8")
+    assert "lastBody" in content
+
+
+def test_visualize_js_formats_and_caps_x_axis_time_labels():
+    # Raw ISO datetime strings ("2026-07-10T00:18:10") as category-scale
+    # labels are unreadably dense and ugly once rotated — ticks are
+    # reformatted to a short label and capped to a fixed count regardless of
+    # how many points are plotted.
+    content = VISUALIZE_JS.read_text(encoding="utf-8")
+    assert "maxTicksLimit" in content
+    assert "formatTimeLabel" in content
+    assert "getLabelForValue" in content
