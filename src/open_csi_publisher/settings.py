@@ -85,6 +85,23 @@ class Settings(BaseSettings):
     # rechecked on every single reload.
     config_recheck_interval_seconds: float = 300
 
+    # Wall-clock budget for each of the two potentially-blocking DataProvider
+    # calls build_dataset() makes (core/builder.py, index/service.py): a
+    # stalled network-mounted file read (rclone/S3) or an unresponsive
+    # ThingsBoard API otherwise blocks the request indefinitely, with no
+    # response and no timeout. Each call gets its own independent budget
+    # (not one combined deadline), so a worst-case build can take up to ~2x
+    # this value.
+    dataset_build_timeout_seconds: float = 120.0
+
+    # Total bytes of LoggerNet files a single build is allowed to read at
+    # once (core/builder.py::build_dataset, DatasetTooLargeError) — some
+    # deployed stations span hundreds of files and 100+ GB of history, so an
+    # unbounded "give me everything" request can exhaust server memory.
+    # Raise this per-deployment via env var for installations with denser
+    # stations than the out-of-the-box default comfortably covers.
+    max_dataset_build_bytes: int = 5 * 1024**3
+
     # Redis-backed cache of parsed LoggerNet/generic-CSV file content
     # (providers/data/loggernet/provider.py, providers/data/generic_csv/provider.py)
     # — unset (the default) disables caching entirely, same "None means off"

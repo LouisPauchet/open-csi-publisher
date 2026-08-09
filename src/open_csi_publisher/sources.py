@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
+from loguru import logger
 
 from open_csi_publisher.providers.base import ConfigProvider, DataProvider
 from open_csi_publisher.providers.config.folder import FolderConfigProvider
@@ -119,11 +120,26 @@ def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
 def list_all_datasets(sources: list[SourceEntry], *, base_dir: Path) -> list[DatasetLocation]:
     """Every dataset across every configured source, each paired with the
     providers needed to build it — the enumeration the listing/search service
-    (and, later, the rest of the REST API) iterates over."""
+    (and, later, the rest of the REST API) iterates over.
+
+    This is called both eagerly at app startup (to build the OPeNDAP app) and
+    on every single request that resolves a dataset location (api/deps.py's
+    get_dataset_locations(), via FastAPI's Depends). A `thingsboard` source's
+    provider construction/listing makes real HTTP calls (login, list
+    devices), so one unreachable or misconfigured source must not take
+    unrelated sources' datasets down with it — at startup that would mean
+    the whole app fails to start; per-request it would mean every dataset
+    request 500s, not just that source's own.
+    """
     locations: list[DatasetLocation] = []
     for source in sources:
-        config_provider = get_config_provider(source, base_dir=base_dir)
-        data_provider = get_data_provider(source, base_dir=base_dir)
-        for dataset_id in config_provider.list_dataset_ids():
+        try:
+            config_provider = get_config_provider(source, base_dir=base_dir)
+            data_provider = get_data_provider(source, base_dir=base_dir)
+            dataset_ids = config_provider.list_dataset_ids()
+        except Exception:
+            logger.exception("source {!r} failed to list its datasets — skipping it", source.id)
+            continue
+        for dataset_id in dataset_ids:
             locations.append(DatasetLocation(source.id, dataset_id, config_provider, data_provider))
     return locations

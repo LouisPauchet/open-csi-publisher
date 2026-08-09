@@ -7,241 +7,251 @@
 // in everything build_dataset() computes (provenance, geospatial/time
 // coverage) that isn't cheap enough to embed in every listing row. Exposes
 // window.showDatasetPanel() so map.js can call it too.
+//
+// Wrapped in an IIFE: this file loads alongside map.js as a plain,
+// non-module <script> tag on the listing page, sharing the global scope —
+// without this, both files' top-level `const BASE_PATH = ...` would collide
+// ("Identifier 'BASE_PATH' has already been declared"), a SyntaxError that
+// aborts this whole script's execution and silently breaks every row's
+// click handler (which depends on window.showDatasetPanel, defined at the
+// bottom of this file). Anything map.js needs to call is exposed explicitly
+// via window.* below, same as before.
+(function () {
+  // Set by base.html from Settings.root_path — prefixes every URL below so
+  // they still resolve once this app is mounted under a subpath.
+  const BASE_PATH = window.APP_ROOT_PATH || "";
 
-// Set by base.html from Settings.root_path — prefixes every URL below so
-// they still resolve once this app is mounted under a subpath.
-const BASE_PATH = window.APP_ROOT_PATH || "";
+  const ICON_DOWNLOAD =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
 
-const ICON_DOWNLOAD =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
+  const ICON_LINK =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<circle cx="7" cy="12" r="3"/><circle cx="17" cy="12" r="3"/><path d="M10 12h4"/></svg>';
 
-const ICON_LINK =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<circle cx="7" cy="12" r="3"/><circle cx="17" cy="12" r="3"/><path d="M10 12h4"/></svg>';
+  const ICON_DOCUMENT =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>';
 
-const ICON_DOCUMENT =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>';
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".dataset-row").forEach((row) => {
-    row.addEventListener("click", () => selectRow(row));
-  });
-});
-
-// Registered once for the page's lifetime (not per showDatasetPanel call,
-// which would otherwise pile up one extra document-level listener per
-// dataset selected) — closes any open popover on an outside click. A click
-// on the toggle button or inside an open popover's own content is exempt:
-// its target is still within .panel-action, which the button's own click
-// handler (see wirePanelPopovers) already resolved first, earlier in the
-// same bubbling phase.
-document.addEventListener("click", (event) => {
-  if (event.target.closest(".panel-action")) return;
-  closeAllPopovers();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeAllPopovers();
-});
-
-function selectRow(row) {
-  let metadata = {};
-  try {
-    metadata = JSON.parse(row.dataset.meta || "{}");
-  } catch (err) {
-    metadata = {};
-  }
-  highlightRow(row);
-  showDatasetPanel({
-    id: row.dataset.id,
-    title: row.dataset.title || row.dataset.id,
-    platform_type: row.dataset.platformType,
-    metadata: metadata,
-  });
-}
-
-function highlightRow(row) {
-  document.querySelectorAll(".dataset-row.selected").forEach((r) => r.classList.remove("selected"));
-  row.classList.add("selected");
-}
-
-// Renders immediately from whatever's cheaply available (the listing row's
-// embedded data-meta, or a prior fetch), then fetches /datasets/{id} for the
-// full computed metadata (provenance, geospatial/time coverage, any extra
-// config keys) and re-renders once that arrives — so the panel never sits
-// empty waiting on a network round-trip, but still ends up showing
-// everything build_dataset() computes, not just what's cheap enough to
-// embed in every listing row.
-function showDatasetPanel(dataset) {
-  const panel = document.getElementById("dataset-panel");
-  if (!panel) return;
-  panel.dataset.selectedId = dataset.id;
-
-  renderPanel(dataset);
-  fetchFullMetadata(dataset);
-}
-
-async function fetchFullMetadata(dataset) {
-  let response;
-  try {
-    response = await fetch(`${BASE_PATH}/datasets/${encodeURIComponent(dataset.id)}`);
-  } catch (err) {
-    return; // offline/network error — the already-rendered panel stands
-  }
-  if (!response.ok) return;
-  const detail = await response.json();
-
-  const panel = document.getElementById("dataset-panel");
-  // the user may have already selected a different dataset by the time this
-  // resolves — a stale response must not clobber the panel out from under them
-  if (!panel || panel.dataset.selectedId !== dataset.id) return;
-
-  renderPanel({ ...dataset, metadata: detail.metadata });
-}
-
-function renderPanel(dataset) {
-  const panel = document.getElementById("dataset-panel");
-  if (!panel) return;
-
-  const metadata = dataset.metadata || {};
-  const description = metadata.description || "";
-  // description gets its own line; the metadata list below is the remaining
-  // (often long) key/value technical detail, scrolled separately so it can't
-  // push the always-visible title/actions/description out of view.
-  const metaItems = Object.entries(metadata)
-    .filter(([key]) => key !== "description")
-    .map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value))}</li>`)
-    .join("");
-
-  const id = encodeURIComponent(dataset.id);
-  const opendapUrl = `${window.location.origin}${BASE_PATH}/opendap/datasets/${id}/opendap`;
-
-  panel.innerHTML =
-    `<div class="panel-fixed">` +
-    `<h3>${escapeHtml(dataset.title)}</h3>` +
-    `<div class="panel-actions">` +
-    `<div class="panel-action">` +
-    `<button type="button" class="panel-action-btn panel-download-btn" aria-haspopup="true" aria-expanded="false" title="Download data">${ICON_DOWNLOAD}</button>` +
-    `<div class="panel-popover panel-download-popover hidden">` +
-    `<div class="panel-dates">` +
-    `<label>From <input type="date" class="panel-start"></label>` +
-    `<label>To <input type="date" class="panel-end"></label>` +
-    `<span class="panel-dates-hint">(leave blank for the full record)</span>` +
-    `</div>` +
-    `<div class="panel-download-formats">` +
-    `<a class="panel-download-nc" href="${BASE_PATH}/datasets/${id}/download.nc">NetCDF (.nc)</a>` +
-    `<a class="panel-download-csv" href="${BASE_PATH}/datasets/${id}/download.csv">CSV</a>` +
-    `</div>` +
-    `</div>` +
-    `</div>` +
-    `<div class="panel-action">` +
-    `<button type="button" class="panel-action-btn panel-opendap-btn" aria-haspopup="true" aria-expanded="false" title="OPeNDAP access">${ICON_LINK}</button>` +
-    `<div class="panel-popover panel-opendap-popover hidden">` +
-    `<span>OPeNDAP URL (open in Panoply / xarray / other DAP clients):</span>` +
-    `<div class="panel-opendap-copy-row">` +
-    `<code class="panel-opendap-url">${escapeHtml(opendapUrl)}</code>` +
-    `<button type="button" class="panel-opendap-copy">Copy</button>` +
-    `</div>` +
-    `<a href="${BASE_PATH}/opendap/datasets/${id}/opendap.dds" target="_blank" rel="noopener">View OPeNDAP structure (DDS)</a>` +
-    `</div>` +
-    `</div>` +
-    `<div class="panel-action">` +
-    `<button type="button" class="panel-action-btn panel-json-btn" aria-haspopup="true" aria-expanded="false" title="Metadata &amp; deployment history (JSON)">${ICON_DOCUMENT}</button>` +
-    `<div class="panel-popover panel-json-popover hidden">` +
-    `<a href="${BASE_PATH}/datasets/${id}" target="_blank" rel="noopener">Full metadata (JSON)</a>` +
-    `<a href="${BASE_PATH}/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
-    `</div>` +
-    `</div>` +
-    `</div>` +
-    `<p><code>${escapeHtml(dataset.id)}</code>` +
-    (dataset.platform_type ? ` &middot; ${escapeHtml(dataset.platform_type)}` : "") +
-    `</p>` +
-    (description ? `<p class="panel-description">${escapeHtml(description)}</p>` : "") +
-    `</div>` +
-    `<div class="panel-meta-scroll"><ul class="panel-meta">${metaItems}</ul></div>`;
-  panel.classList.remove("hidden");
-
-  wireDateRangeToDownloadLinks(panel, id);
-  wirePanelPopovers(panel);
-}
-
-// The date inputs update the download links' href on every change, so the
-// links always reflect whatever range is currently selected — no separate
-// "apply" step, and the links still work perfectly well with no dates chosen
-// (full record, matching download.nc/.csv's own start/end-optional design).
-function wireDateRangeToDownloadLinks(panel, encodedId) {
-  const startInput = panel.querySelector(".panel-start");
-  const endInput = panel.querySelector(".panel-end");
-  const ncLink = panel.querySelector(".panel-download-nc");
-  const csvLink = panel.querySelector(".panel-download-csv");
-
-  function update() {
-    const params = new URLSearchParams();
-    if (startInput.value) params.set("start", startInput.value);
-    if (endInput.value) params.set("end", endInput.value);
-    const query = params.toString();
-    ncLink.href = `${BASE_PATH}/datasets/${encodedId}/download.nc` + (query ? `?${query}` : "");
-    csvLink.href = `${BASE_PATH}/datasets/${encodedId}/download.csv` + (query ? `?${query}` : "");
-  }
-
-  startInput.addEventListener("change", update);
-  endInput.addEventListener("change", update);
-}
-
-// Each icon button toggles its own popover, closing any other open one
-// first. Freshly wired every showDatasetPanel() call since panel.innerHTML
-// just replaced the buttons (and their old listeners) entirely.
-function wirePanelPopovers(panel) {
-  panel.querySelectorAll(".panel-action").forEach((action) => {
-    const button = action.querySelector(".panel-action-btn");
-    const popover = action.querySelector(".panel-popover");
-    button.addEventListener("click", () => {
-      const isOpen = !popover.classList.contains("hidden");
-      closeAllPopovers();
-      if (!isOpen) {
-        popover.classList.remove("hidden");
-        button.setAttribute("aria-expanded", "true");
-      }
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".dataset-row").forEach((row) => {
+      row.addEventListener("click", () => selectRow(row));
     });
   });
 
-  const copyButton = panel.querySelector(".panel-opendap-copy");
-  if (copyButton) {
-    copyButton.addEventListener("click", () => {
-      const url = panel.querySelector(".panel-opendap-url").textContent;
-      copyToClipboard(url, copyButton);
+  // Registered once for the page's lifetime (not per showDatasetPanel call,
+  // which would otherwise pile up one extra document-level listener per
+  // dataset selected) — closes any open popover on an outside click. A click
+  // on the toggle button or inside an open popover's own content is exempt:
+  // its target is still within .panel-action, which the button's own click
+  // handler (see wirePanelPopovers) already resolved first, earlier in the
+  // same bubbling phase.
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".panel-action")) return;
+    closeAllPopovers();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAllPopovers();
+  });
+
+  function selectRow(row) {
+    let metadata = {};
+    try {
+      metadata = JSON.parse(row.dataset.meta || "{}");
+    } catch (err) {
+      metadata = {};
+    }
+    highlightRow(row);
+    showDatasetPanel({
+      id: row.dataset.id,
+      title: row.dataset.title || row.dataset.id,
+      platform_type: row.dataset.platformType,
+      metadata: metadata,
     });
   }
-}
 
-function closeAllPopovers() {
-  document.querySelectorAll("#dataset-panel .panel-popover").forEach((popover) => {
-    popover.classList.add("hidden");
-  });
-  document.querySelectorAll("#dataset-panel .panel-action-btn").forEach((button) => {
-    button.setAttribute("aria-expanded", "false");
-  });
-}
+  function highlightRow(row) {
+    document.querySelectorAll(".dataset-row.selected").forEach((r) => r.classList.remove("selected"));
+    row.classList.add("selected");
+  }
 
-function copyToClipboard(text, button) {
-  if (!navigator.clipboard || !navigator.clipboard.writeText) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const original = button.textContent;
-    button.textContent = "Copied!";
-    setTimeout(() => {
-      button.textContent = original;
-    }, 1500);
-  });
-}
+  // Renders immediately from whatever's cheaply available (the listing row's
+  // embedded data-meta, or a prior fetch), then fetches /datasets/{id} for the
+  // full computed metadata (provenance, geospatial/time coverage, any extra
+  // config keys) and re-renders once that arrives — so the panel never sits
+  // empty waiting on a network round-trip, but still ends up showing
+  // everything build_dataset() computes, not just what's cheap enough to
+  // embed in every listing row.
+  function showDatasetPanel(dataset) {
+    const panel = document.getElementById("dataset-panel");
+    if (!panel) return;
+    panel.dataset.selectedId = dataset.id;
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
+    renderPanel(dataset);
+    fetchFullMetadata(dataset);
+  }
 
-window.showDatasetPanel = showDatasetPanel;
+  async function fetchFullMetadata(dataset) {
+    let response;
+    try {
+      response = await fetch(`${BASE_PATH}/datasets/${encodeURIComponent(dataset.id)}`);
+    } catch (err) {
+      return; // offline/network error — the already-rendered panel stands
+    }
+    if (!response.ok) return;
+    const detail = await response.json();
+
+    const panel = document.getElementById("dataset-panel");
+    // the user may have already selected a different dataset by the time this
+    // resolves — a stale response must not clobber the panel out from under them
+    if (!panel || panel.dataset.selectedId !== dataset.id) return;
+
+    renderPanel({ ...dataset, metadata: detail.metadata });
+  }
+
+  function renderPanel(dataset) {
+    const panel = document.getElementById("dataset-panel");
+    if (!panel) return;
+
+    const metadata = dataset.metadata || {};
+    const description = metadata.description || "";
+    // description gets its own line; the metadata list below is the remaining
+    // (often long) key/value technical detail, scrolled separately so it can't
+    // push the always-visible title/actions/description out of view.
+    const metaItems = Object.entries(metadata)
+      .filter(([key]) => key !== "description")
+      .map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value))}</li>`)
+      .join("");
+
+    const id = encodeURIComponent(dataset.id);
+    const opendapUrl = `${window.location.origin}${BASE_PATH}/opendap/datasets/${id}/opendap`;
+
+    panel.innerHTML =
+      `<div class="panel-fixed">` +
+      `<h3>${escapeHtml(dataset.title)}</h3>` +
+      `<div class="panel-actions">` +
+      `<div class="panel-action">` +
+      `<button type="button" class="panel-action-btn panel-download-btn" aria-haspopup="true" aria-expanded="false" title="Download data">${ICON_DOWNLOAD}</button>` +
+      `<div class="panel-popover panel-download-popover hidden">` +
+      `<div class="panel-dates">` +
+      `<label>From <input type="date" class="panel-start"></label>` +
+      `<label>To <input type="date" class="panel-end"></label>` +
+      `<span class="panel-dates-hint">(leave blank for the full record)</span>` +
+      `</div>` +
+      `<div class="panel-download-formats">` +
+      `<a class="panel-download-nc" href="${BASE_PATH}/datasets/${id}/download.nc">NetCDF (.nc)</a>` +
+      `<a class="panel-download-csv" href="${BASE_PATH}/datasets/${id}/download.csv">CSV</a>` +
+      `</div>` +
+      `</div>` +
+      `</div>` +
+      `<div class="panel-action">` +
+      `<button type="button" class="panel-action-btn panel-opendap-btn" aria-haspopup="true" aria-expanded="false" title="OPeNDAP access">${ICON_LINK}</button>` +
+      `<div class="panel-popover panel-opendap-popover hidden">` +
+      `<span>OPeNDAP URL (open in Panoply / xarray / other DAP clients):</span>` +
+      `<div class="panel-opendap-copy-row">` +
+      `<code class="panel-opendap-url">${escapeHtml(opendapUrl)}</code>` +
+      `<button type="button" class="panel-opendap-copy">Copy</button>` +
+      `</div>` +
+      `<a href="${BASE_PATH}/opendap/datasets/${id}/opendap.dds" target="_blank" rel="noopener">View OPeNDAP structure (DDS)</a>` +
+      `</div>` +
+      `</div>` +
+      `<div class="panel-action">` +
+      `<button type="button" class="panel-action-btn panel-json-btn" aria-haspopup="true" aria-expanded="false" title="Metadata &amp; deployment history (JSON)">${ICON_DOCUMENT}</button>` +
+      `<div class="panel-popover panel-json-popover hidden">` +
+      `<a href="${BASE_PATH}/datasets/${id}" target="_blank" rel="noopener">Full metadata (JSON)</a>` +
+      `<a href="${BASE_PATH}/datasets/${id}/deployments" target="_blank" rel="noopener">Deployment history (JSON)</a>` +
+      `</div>` +
+      `</div>` +
+      `</div>` +
+      `<p><code>${escapeHtml(dataset.id)}</code>` +
+      (dataset.platform_type ? ` &middot; ${escapeHtml(dataset.platform_type)}` : "") +
+      `</p>` +
+      (description ? `<p class="panel-description">${escapeHtml(description)}</p>` : "") +
+      `</div>` +
+      `<div class="panel-meta-scroll"><ul class="panel-meta">${metaItems}</ul></div>`;
+    panel.classList.remove("hidden");
+
+    wireDateRangeToDownloadLinks(panel, id);
+    wirePanelPopovers(panel);
+  }
+
+  // The date inputs update the download links' href on every change, so the
+  // links always reflect whatever range is currently selected — no separate
+  // "apply" step, and the links still work perfectly well with no dates chosen
+  // (full record, matching download.nc/.csv's own start/end-optional design).
+  function wireDateRangeToDownloadLinks(panel, encodedId) {
+    const startInput = panel.querySelector(".panel-start");
+    const endInput = panel.querySelector(".panel-end");
+    const ncLink = panel.querySelector(".panel-download-nc");
+    const csvLink = panel.querySelector(".panel-download-csv");
+
+    function update() {
+      const params = new URLSearchParams();
+      if (startInput.value) params.set("start", startInput.value);
+      if (endInput.value) params.set("end", endInput.value);
+      const query = params.toString();
+      ncLink.href = `${BASE_PATH}/datasets/${encodedId}/download.nc` + (query ? `?${query}` : "");
+      csvLink.href = `${BASE_PATH}/datasets/${encodedId}/download.csv` + (query ? `?${query}` : "");
+    }
+
+    startInput.addEventListener("change", update);
+    endInput.addEventListener("change", update);
+  }
+
+  // Each icon button toggles its own popover, closing any other open one
+  // first. Freshly wired every showDatasetPanel() call since panel.innerHTML
+  // just replaced the buttons (and their old listeners) entirely.
+  function wirePanelPopovers(panel) {
+    panel.querySelectorAll(".panel-action").forEach((action) => {
+      const button = action.querySelector(".panel-action-btn");
+      const popover = action.querySelector(".panel-popover");
+      button.addEventListener("click", () => {
+        const isOpen = !popover.classList.contains("hidden");
+        closeAllPopovers();
+        if (!isOpen) {
+          popover.classList.remove("hidden");
+          button.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+
+    const copyButton = panel.querySelector(".panel-opendap-copy");
+    if (copyButton) {
+      copyButton.addEventListener("click", () => {
+        const url = panel.querySelector(".panel-opendap-url").textContent;
+        copyToClipboard(url, copyButton);
+      });
+    }
+  }
+
+  function closeAllPopovers() {
+    document.querySelectorAll("#dataset-panel .panel-popover").forEach((popover) => {
+      popover.classList.add("hidden");
+    });
+    document.querySelectorAll("#dataset-panel .panel-action-btn").forEach((button) => {
+      button.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function copyToClipboard(text, button) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const original = button.textContent;
+      button.textContent = "Copied!";
+      setTimeout(() => {
+        button.textContent = original;
+      }, 1500);
+    });
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  window.showDatasetPanel = showDatasetPanel;
+})();

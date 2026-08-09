@@ -139,6 +139,27 @@ def test_dataset_panel_js_prefixes_every_url_with_the_configured_root_path():
     assert "${BASE_PATH}/datasets/${encodedId}/download.csv" in content
 
 
+def test_dataset_panel_js_wraps_its_contents_in_an_iife_to_avoid_global_collisions():
+    # dataset_panel.js and map.js are both loaded as plain, non-module
+    # <script> tags on the listing page (list.html) and share the global
+    # scope. Without each file scoping its own top-level declarations
+    # (BASE_PATH, etc.) inside an IIFE, both files' identical
+    # `const BASE_PATH = ...` collide: "Uncaught SyntaxError: Identifier
+    # 'BASE_PATH' has already been declared" — which aborts the *second*
+    # script's execution entirely (a SyntaxError happens at parse time), so
+    # this file never runs and window.showDatasetPanel is never defined,
+    # silently breaking every row's click handler.
+    content = PANEL_JS.read_text(encoding="utf-8")
+    assert content.rstrip().endswith("})();")
+    iife_open = (
+        content.index("(function () {") if "(function () {" in content else content.index("(function() {")
+    )
+    # the real declaration (with its actual RHS, unlike the explanatory
+    # comment above the IIFE which mentions "const BASE_PATH = ..." in prose)
+    # must come after the IIFE opens, not at top level
+    assert content.index('const BASE_PATH = window.APP_ROOT_PATH || "";') > iife_open
+
+
 def test_dataset_panel_js_guards_against_a_stale_fetch_response():
     # if the user clicks a different row before the fetch for the first one
     # resolves, the late response must not clobber the panel that's now

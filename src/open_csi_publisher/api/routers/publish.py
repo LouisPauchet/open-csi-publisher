@@ -106,6 +106,11 @@ def get_publish_month(
         raise HTTPException(status_code=409, detail="requested month is not yet complete")
 
     start, end = month_bounds(year, month)
+    # enforce_size_cap=False: this endpoint is already self-bounded to one
+    # calendar month per call and is a trusted, API-key-gated server-to-
+    # server path (require_api_key above) — the cap that protects ad hoc
+    # REST requests from an unbounded "give me everything" would only ever
+    # get in its way here (core/builder.py::build_dataset's docstring).
     ds = builder_module.build_dataset(
         dataset_id,
         start=start,
@@ -113,6 +118,7 @@ def get_publish_month(
         session=session,
         config_provider=location.config_provider,
         data_provider=location.data_provider,
+        enforce_size_cap=False,
     )
     # build_dataset() already attached processing_software_version/config_hash/
     # config_version_timestamp/history to every build (core/builder.py) — read
