@@ -166,6 +166,32 @@ def test_parse_toa5_file_logs_a_warning_via_loguru_when_falling_back_to_flexible
     assert "falling back to flexible parsing" in caplog.text
 
 
+def test_parse_toa5_file_handles_mixed_fractional_and_whole_second_timestamps(tmp_path):
+    # A high-frequency table (e.g. a 20Hz sonic anemometer) has LoggerNet trim the
+    # fractional-second suffix entirely on whichever row lands exactly on a whole
+    # second, so the same TIMESTAMP column mixes "HH:MM:SS.ff" and bare "HH:MM:SS"
+    # rows. pandas' default flexible-parse fallback infers one format from the
+    # first row and applies it to the whole column, which raises on this mix.
+    path = tmp_path / "mixed_precision.dat"
+    path.write_text(
+        '"TOA5","Station","CR1000","12345","CR1000.Std.01","Program.CR1","1234","Table"\n'
+        '"TIMESTAMP","RECORD","Ux"\n'
+        '"TS","RN","meters/second"\n'
+        '"","Smp","Smp"\n'
+        '"2026-08-14 13:23:21.35",0,1.1\n'
+        '"2026-08-14 13:23:21.4",1,1.2\n'
+        '"2026-08-14 13:23:22",2,1.3\n'
+        '"2026-08-14 13:23:22.05",3,1.4\n',
+        encoding="utf-8",
+    )
+
+    parsed = parse_toa5_file(path)
+
+    assert parsed.n_rows == 4
+    assert parsed.time_start == datetime(2026, 8, 14, 13, 23, 21, 350000)
+    assert parsed.time_end == datetime(2026, 8, 14, 13, 23, 22, 50000)
+
+
 def test_parse_toa5_header_rejects_file_with_too_few_lines(tmp_path):
     path = tmp_path / "truncated.dat"
     path.write_text("just,some,other,csv,content\n1,2,3,4,5\n", encoding="utf-8")

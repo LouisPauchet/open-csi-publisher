@@ -121,7 +121,13 @@ def parse_toa5_start_time(path: Path, *, timestamp_column: str = "TIMESTAMP") ->
     try:
         parsed_time = pd.to_datetime(df[timestamp_column], format=_TIMESTAMP_FORMAT)
     except ValueError:
-        parsed_time = pd.to_datetime(df[timestamp_column])
+        # "mixed", not a plain inferred format: high-frequency tables (e.g. a 20Hz
+        # sonic anemometer) have LoggerNet trim the fractional-second suffix
+        # entirely on whichever row lands exactly on a whole second, so the same
+        # column mixes "HH:MM:SS.ff" and bare "HH:MM:SS" rows — a single inferred
+        # format applied to the whole column chokes on whichever shape it didn't
+        # sample first.
+        parsed_time = pd.to_datetime(df[timestamp_column], format="mixed")
 
     return parsed_time.iloc[0].to_pydatetime()
 
@@ -190,7 +196,10 @@ def parse_toa5_file(
                 path,
                 _TIMESTAMP_FORMAT,
             )
-            parsed_time = pd.to_datetime(df[timestamp_column])
+            # See parse_toa5_start_time's matching branch: "mixed" handles a column
+            # that mixes fractional- and whole-second timestamp rows, which a single
+            # inferred format (pandas' default fallback) cannot.
+            parsed_time = pd.to_datetime(df[timestamp_column], format="mixed")
 
     df = df.drop(columns=[timestamp_column])
     df.index = pd.DatetimeIndex(parsed_time, name="time")
