@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.7.0...open-csi-publisher-v0.7.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **loggernet:** handle mixed fractional/whole-second TOA5 timestamps ([f52ffd6](https://github.com/LouisPauchet/open-csi-publisher/commit/f52ffd641913366f93037eeb3b8126d35e284c8b))
+
 ## [0.7.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.6.0...open-csi-publisher-v0.7.0) (2026-08-09)
 
 
