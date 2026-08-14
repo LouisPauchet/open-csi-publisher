@@ -36,3 +36,34 @@ latitude: {standard_name: latitude, units: degrees_north}
 longitude: {standard_name: longitude, units: degrees_east}
 
 PAR_Avg: {standard_name: surface_downwelling_photosynthetic_radiative_flux_in_air, units: micromol/m2/s}
+
+wind_speed_Max: {standard_name: wind_speed, units: m/s}
+wind_direction_Std: {standard_name: wind_from_direction, units: degrees}
+
+battery_voltage_Avg: {standard_name: battery_voltage, units: V}
+BattV_Min: {standard_name: battery_voltage, units: V}
+BattV: {standard_name: battery_voltage, units: V}
+
+AirTC: {standard_name: air_temperature, units: degC}
+
+# Eddy-covariance / flux-tower naming (AmeriFlux / Campbell Scientific EasyFlux
+# conventions) — seeded from the CRIOS and Breinosa Eiscat (NEWS) flux stations.
+WS: {standard_name: wind_speed, units: m/s}
+WD: {standard_name: wind_from_direction, units: degree}
+PA: {standard_name: air_pressure, units: kPa}
+USTAR: {standard_name: friction_velocity, units: m/s}
+T_SONIC: {standard_name: virtual_temperature, units: degC}
+PBLH: {standard_name: atmosphere_boundary_layer_thickness, units: m}
+FC: {standard_name: surface_upward_mole_flux_of_carbon_dioxide, units: umol/m2/s}
+LE: {standard_name: surface_upward_latent_heat_flux, units: W/m2}
+H: {standard_name: surface_upward_sensible_heat_flux, units: W/m2}
+NETRAD: {standard_name: surface_net_downward_radiative_flux, units: W/m2}
+ALB: {standard_name: surface_albedo, units: "%"}
+SW_IN: {standard_name: surface_downwelling_shortwave_flux_in_air, units: W/m2}
+SW_OUT: {standard_name: surface_upwelling_shortwave_flux_in_air, units: W/m2}
+LW_IN: {standard_name: surface_downwelling_longwave_flux_in_air, units: W/m2}
+LW_OUT: {standard_name: surface_upwelling_longwave_flux_in_air, units: W/m2}
+
+# Icing/ice-load monitor (Breinosa Eiscat AWS) — not an official CF standard_name,
+# same pragmatic-naming precedent as battery_voltage above.
+IceMonitor: {standard_name: ice_accretion_mass, units: kg}
