@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any, Protocol
 from urllib.parse import urlparse
 
-READ_ONLY_API = ("glob", "stat", "open_read", "read_text", "read_bytes", "is_file")
+READ_ONLY_API = ("glob", "stat", "open_read", "read_text", "read_bytes", "is_file", "describe")
 
 
 class StorageConfigError(ValueError):
@@ -33,6 +33,7 @@ class Storage(Protocol):
     def read_text(self, rel: str, encoding: str = "utf-8") -> str: ...
     def read_bytes(self, rel: str) -> bytes: ...
     def is_file(self, rel: str) -> bool: ...
+    def describe(self, rel: str) -> str: ...
 
 
 def _check_rel(rel: str) -> str:
@@ -69,6 +70,9 @@ class LocalStorage:
 
     def is_file(self, rel: str) -> bool:
         return self._abs(rel).is_file()
+
+    def describe(self, rel: str) -> str:
+        return str(self._abs(rel))
 
 
 class S3Storage:
@@ -109,6 +113,9 @@ class S3Storage:
 
     def is_file(self, rel: str) -> bool:
         return bool(self.__fs.isfile(self._key(rel)))
+
+    def describe(self, rel: str) -> str:
+        return "s3://" + self._key(rel)
 
 
 def make_storage(location: str, base_dir: Path, env_prefix: str | None) -> Storage:
