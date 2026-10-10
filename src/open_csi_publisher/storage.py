@@ -139,27 +139,27 @@ def make_storage(location: str, base_dir: Path, env_prefix: str | None) -> Stora
     """Build a storage for ``location``.
 
     ``s3://bucket/prefix`` uses that bucket; ``s3:///prefix`` (empty host) takes the
-    bucket from ``<env_prefix>BUCKET``. Anything else is a local path under ``base_dir``.
+    bucket from ``<env_prefix>_BUCKET``. Anything else is a local path under ``base_dir``.
     """
     if not location.startswith("s3://"):
         return LocalStorage(base_dir / location)
 
     if not env_prefix:
         raise StorageConfigError(
-            f"S3 location {location!r} needs credentials_env_prefix (e.g. 'LN_OFS_S3_')"
+            f"S3 location {location!r} needs credentials_env_prefix (e.g. 'LN_OFS_S3')"
         )
     url = urlparse(location)
     env = {
-        name: os.environ.get(f"{env_prefix}{name}", "")
+        name: os.environ.get(f"{env_prefix}_{name}", "")
         for name in (
             "ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "ENDPOINT", "REGION", "BUCKET",
             "ADDRESSING_STYLE",
         )
     }
     bucket = url.netloc or env["BUCKET"]
-    missing = [f"{env_prefix}{n}" for n in ("ACCESS_KEY_ID", "SECRET_ACCESS_KEY") if not env[n]]
+    missing = [f"{env_prefix}_{n}" for n in ("ACCESS_KEY_ID", "SECRET_ACCESS_KEY") if not env[n]]
     if not bucket:
-        missing.append(f"{env_prefix}BUCKET")
+        missing.append(f"{env_prefix}_BUCKET")
     if missing:
         raise StorageConfigError("Missing S3 configuration: " + ", ".join(missing))
 

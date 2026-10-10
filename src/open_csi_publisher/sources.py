@@ -17,15 +17,20 @@ from open_csi_publisher.providers.data.thingsboard.provider import ThingsBoardDa
 from open_csi_publisher.providers.thingsboard_client import ThingsBoardClient
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.cache import get_parse_cache
+from open_csi_publisher.storage import make_storage
 
 
 @dataclass(frozen=True)
 class SourceEntry:
     """One entry from the top-level sources.yaml (implementation_plan.md §4.1).
 
-    `credentials_env_prefix` is only meaningful for `type: thingsboard` (unlike
-    `config_location`/`data_location`, ignored there) — it names which env vars
-    hold that source's ThingsBoard credentials: `{prefix}_BASE_URL` plus either
+    `credentials_env_prefix` names which env vars hold that source's credentials.
+    For an S3 location (`s3://bucket/prefix`, or `s3:///prefix` with the bucket
+    taken from the env) the vars are `{prefix}_ACCESS_KEY_ID`,
+    `{prefix}_SECRET_ACCESS_KEY`, `{prefix}_ENDPOINT`, `{prefix}_REGION` and
+    `{prefix}_BUCKET`; S3 access is strictly read-only (storage.py). For
+    `type: thingsboard` (where `config_location`/`data_location` are ignored)
+    they are the ThingsBoard credentials: `{prefix}_BASE_URL` plus either
     `{prefix}_API_KEY` or `{prefix}_USERNAME`/`{prefix}_PASSWORD` (API key takes
     precedence if both are set), so multiple thingsboard sources can each point
     at a different tenant. Defaults to "THINGSBOARD" so a single-tenant
@@ -101,7 +106,9 @@ def _get_thingsboard_client(credentials_env_prefix: str) -> ThingsBoardClient:
 
 def get_config_provider(source: SourceEntry, *, base_dir: Path) -> ConfigProvider:
     if source.config_provider == "folder":
-        return FolderConfigProvider(base_dir / source.config_location)
+        return FolderConfigProvider(
+            make_storage(source.config_location, base_dir, source.credentials_env_prefix)
+        )
     if source.config_provider == "thingsboard":
         return ThingsBoardConfigProvider(_get_thingsboard_client(source.credentials_env_prefix))
     raise ValueError(f"unknown config_provider: {source.config_provider!r}")
@@ -109,7 +116,10 @@ def get_config_provider(source: SourceEntry, *, base_dir: Path) -> ConfigProvide
 
 def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
     if source.type == "loggernet":
-        return LoggerNetDataProvider(base_dir / source.data_location, cache=get_parse_cache())
+        return LoggerNetDataProvider(
+            make_storage(source.data_location, base_dir, source.credentials_env_prefix),
+            cache=get_parse_cache(),
+        )
     if source.type == "generic_csv":
         return GenericCsvDataProvider(base_dir / source.data_location, cache=get_parse_cache())
     if source.type == "thingsboard":
