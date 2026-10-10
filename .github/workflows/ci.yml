@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
           python-version: "3.12"
 
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra s3
       - run: uv run ruff check .
 
   test:
@@ -40,7 +40,7 @@ jobs:
           enable-cache: true
           python-version: "3.12"
 
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra s3
       # No real station data (mount/) or sample_configs/-dependent .env exists
       # in CI — tests that need either are self-skipping (requires_mount) or
       # use tmp_path/in-memory fixtures, same as any contributor's machine
