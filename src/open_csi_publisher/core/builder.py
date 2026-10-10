@@ -78,7 +78,10 @@ def build_dataset(
 
     mapped = apply_variable_spec(raw, config.variables)
     if variables is not None:
-        mapped = mapped[[name for name in variables if name in mapped.data_vars]]
+        # drop_vars, not mapped[[...]]: indexing with an empty list (every
+        # requested variable absent from the data) discards the time coord too.
+        wanted = set(variables)
+        mapped = mapped.drop_vars([name for name in mapped.data_vars if name not in wanted])
 
     result = apply_deployment_metadata(mapped, config)
     result.attrs.update(_build_global_attrs(config))
