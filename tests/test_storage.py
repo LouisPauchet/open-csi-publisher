@@ -140,3 +140,8 @@ def test_make_storage_s3_no_bucket_anywhere_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("LN_OFS_S3_SECRET_ACCESS_KEY", "s")
     with pytest.raises(StorageConfigError, match="LN_OFS_S3_BUCKET"):
         make_storage("s3:///data", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+
+
+def test_describe_gives_human_readable_location(local_tree, memory_s3):
+    assert LocalStorage(local_tree).describe("a.dat") == str(local_tree / "a.dat")
+    assert memory_s3.describe("sub/b.dat") == "s3://bkt/data/sub/b.dat"

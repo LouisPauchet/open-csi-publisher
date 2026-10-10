@@ -81,3 +81,39 @@ def test_config_hash_stable_for_unchanged_file(tmp_path):
     _write(tmp_path, "station_a", MINIMAL_CONFIG)
     provider = FolderConfigProvider(tmp_path)
     assert provider.config_hash("station_a") == provider.config_hash("station_a")
+
+
+def _s3_storage(files: dict[str, bytes]):
+    import fsspec
+
+    from open_csi_publisher.storage import S3Storage
+
+    fs = fsspec.filesystem("memory")
+    fs.store.clear()
+    fs.pseudo_dirs[:] = [""]
+    for name, content in files.items():
+        fs.pipe_file(f"/bkt/__config__/{name}", content)
+    return S3Storage(fs=fs, bucket="bkt", prefix="__config__")
+
+
+def test_folder_provider_over_s3_storage():
+    storage = _s3_storage(
+        {
+            "station_b.json": json.dumps(MINIMAL_CONFIG).encode(),
+            "station_a.json": json.dumps(MINIMAL_CONFIG).encode(),
+            "notes.txt": b"x",
+        }
+    )
+    provider = FolderConfigProvider(storage)
+    assert provider.list_dataset_ids() == ["station_a", "station_b"]
+    assert provider.load_config("station_a") == MINIMAL_CONFIG
+    assert len(provider.config_hash("station_a")) == 64
+    with pytest.raises(DatasetConfigNotFoundError):
+        provider.load_config("missing")
+
+
+def test_folder_provider_over_s3_logs_s3_url_on_malformed_json(caplog):
+    provider = FolderConfigProvider(_s3_storage({"bad.json": b"{nope"}))
+    with pytest.raises(json.JSONDecodeError):
+        provider.load_config("bad")
+    assert "s3://bkt/__config__/bad.json" in caplog.text
