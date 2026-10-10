@@ -73,7 +73,7 @@ def test_matched_files_skips_files_without_a_toa5_header(tmp_path):
     config = LoggerNetSourceConfig(file_pattern="Station_Table*.csv")
     matched = provider.matched_files(config)
 
-    assert matched == [valid]
+    assert matched == ["Station_Table.csv"]
 
 
 def test_matched_files_logs_a_warning_via_loguru_for_each_skipped_file(tmp_path, caplog):
