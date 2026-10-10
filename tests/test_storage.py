@@ -108,7 +108,7 @@ def test_make_storage_s3_bucket_from_env(monkeypatch, tmp_path):
     for k, v in {"ACCESS_KEY_ID": "k", "SECRET_ACCESS_KEY": "s",
                  "ENDPOINT": "http://localhost:9", "REGION": "r", "BUCKET": "envbkt"}.items():
         monkeypatch.setenv(f"LN_OFS_S3_{k}", v)
-    s = make_storage("s3:///__config__/", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+    s = make_storage("s3:///__config__/", base_dir=tmp_path, env_prefix="LN_OFS_S3")
     assert isinstance(s, S3Storage)
     assert s.bucket == "envbkt" and s.prefix == "__config__"
 
@@ -118,7 +118,7 @@ def test_make_storage_s3_url_bucket_wins(monkeypatch, tmp_path):
     monkeypatch.setenv("LN_OFS_S3_ACCESS_KEY_ID", "k")
     monkeypatch.setenv("LN_OFS_S3_SECRET_ACCESS_KEY", "s")
     monkeypatch.setenv("LN_OFS_S3_ENDPOINT", "http://localhost:9")
-    s = make_storage("s3://urlbkt/data", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+    s = make_storage("s3://urlbkt/data", base_dir=tmp_path, env_prefix="LN_OFS_S3")
     assert s.bucket == "urlbkt" and s.prefix == "data"
 
 
@@ -126,7 +126,7 @@ def test_make_storage_s3_missing_credentials_raises_config_error(monkeypatch, tm
     for k in ("ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "ENDPOINT", "REGION", "BUCKET"):
         monkeypatch.delenv(f"LN_OFS_S3_{k}", raising=False)
     with pytest.raises(StorageConfigError, match="LN_OFS_S3_ACCESS_KEY_ID"):
-        make_storage("s3://b/x", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+        make_storage("s3://b/x", base_dir=tmp_path, env_prefix="LN_OFS_S3")
 
 
 def test_make_storage_s3_without_prefix_raises(tmp_path):
@@ -139,7 +139,7 @@ def test_make_storage_s3_no_bucket_anywhere_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("LN_OFS_S3_ACCESS_KEY_ID", "k")
     monkeypatch.setenv("LN_OFS_S3_SECRET_ACCESS_KEY", "s")
     with pytest.raises(StorageConfigError, match="LN_OFS_S3_BUCKET"):
-        make_storage("s3:///data", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+        make_storage("s3:///data", base_dir=tmp_path, env_prefix="LN_OFS_S3")
 
 
 def test_describe_gives_human_readable_location(local_tree, memory_s3):

@@ -263,3 +263,49 @@ def test_list_all_datasets_logs_the_failing_source_id_and_error(caplog):
 
 def test_list_all_datasets_with_only_a_failing_source_returns_empty_list():
     assert list_all_datasets([_BAD_SOURCE], base_dir=REPO_ROOT) == []
+
+
+def _s3_env(monkeypatch, prefix="LN_OFS_S3"):
+    for k, v in {"ACCESS_KEY_ID": "k", "SECRET_ACCESS_KEY": "s",
+                 "ENDPOINT": "http://localhost:9", "REGION": "r", "BUCKET": "bkt"}.items():
+        monkeypatch.setenv(f"{prefix}_{k}", v)
+
+
+def test_get_config_provider_s3_location_uses_s3_storage(monkeypatch):
+    from open_csi_publisher.storage import S3Storage
+
+    _s3_env(monkeypatch)
+    source = SourceEntry(
+        id="s", type="loggernet", config_provider="folder",
+        config_location="s3:///__config__/", data_location="s3:///",
+        credentials_env_prefix="LN_OFS_S3",
+    )
+    provider = get_config_provider(source, base_dir=REPO_ROOT)
+    assert isinstance(provider, FolderConfigProvider)
+    assert isinstance(provider._storage, S3Storage)
+    assert provider._storage.prefix == "__config__"
+
+
+def test_get_data_provider_s3_location_uses_s3_storage(monkeypatch):
+    from open_csi_publisher.storage import S3Storage
+
+    _s3_env(monkeypatch)
+    source = SourceEntry(
+        id="s", type="loggernet", config_provider="folder",
+        config_location="s3:///__config__/", data_location="s3:///",
+        credentials_env_prefix="LN_OFS_S3",
+    )
+    provider = get_data_provider(source, base_dir=REPO_ROOT)
+    assert isinstance(provider, LoggerNetDataProvider)
+    assert isinstance(provider._storage, S3Storage)
+
+
+def test_list_all_datasets_skips_s3_source_with_missing_env(monkeypatch, caplog):
+    for k in ("ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "BUCKET"):
+        monkeypatch.delenv(f"LN_OFS_S3_{k}", raising=False)
+    source = SourceEntry(
+        id="s3src", type="loggernet", config_provider="folder",
+        config_location="s3:///__config__/", data_location="s3:///",
+        credentials_env_prefix="LN_OFS_S3",
+    )
+    assert list_all_datasets([source], base_dir=REPO_ROOT) == []
