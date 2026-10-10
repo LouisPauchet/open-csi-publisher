@@ -36,6 +36,23 @@ class Storage(Protocol):
     def describe(self, rel: str) -> str: ...
 
 
+class StorageFile:
+    """A file inside a Storage, readable (never writable) and printable as its location."""
+
+    def __init__(self, storage: Storage, rel: str) -> None:
+        self.storage = storage
+        self.rel = rel
+
+    def open_read(self) -> IO[bytes]:
+        return self.storage.open_read(self.rel)
+
+    def __str__(self) -> str:
+        return self.storage.describe(self.rel)
+
+    def __repr__(self) -> str:
+        return f"StorageFile({str(self)!r})"
+
+
 def _check_rel(rel: str) -> str:
     parts = PurePosixPath(rel).parts
     if ".." in parts or PurePosixPath(rel).is_absolute():

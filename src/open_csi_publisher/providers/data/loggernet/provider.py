@@ -4,7 +4,7 @@ import os
 import pickle
 from dataclasses import replace
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Sequence
 
 import xarray as xr
@@ -29,21 +29,30 @@ from open_csi_publisher.providers.data.loggernet.toa5 import (
 )
 from open_csi_publisher.settings import settings
 from open_csi_publisher.state.cache import NullParseCache, ParseCache
+from open_csi_publisher.storage import LocalStorage, Storage, StorageFile
 
 
 class LoggerNetDataProvider(DataProvider):
-    def __init__(self, data_root: Path, cache: ParseCache | NullParseCache | None = None):
-        self._data_root = Path(data_root)
+    def __init__(self, data_root: Path | Storage, cache: ParseCache | NullParseCache | None = None):
+        self._storage: Storage = (
+            LocalStorage(Path(data_root)) if isinstance(data_root, (str, Path)) else data_root
+        )
         self._cache = cache if cache is not None else NullParseCache()
 
     def get_file_index(
         self, source_config: LoggerNetSourceConfig, previous: Sequence[FileRecord] = ()
     ) -> list[FileRecord]:
         matched = self.matched_files(source_config)
+        matched_paths = [PurePosixPath(m) for m in matched]
         try:
-            classified = classify_files(matched, historical_suffix=source_config.historical_suffix)
+            classified = classify_files(
+                matched_paths, historical_suffix=source_config.historical_suffix
+            )
         except AmbiguousFileSetError:
-            if count_live_candidates(matched, historical_suffix=source_config.historical_suffix) == 0:
+            if (
+                count_live_candidates(matched_paths, historical_suffix=source_config.historical_suffix)
+                == 0
+            ):
                 logger.warning(
                     "no live file yet for {} — treating as no data available",
                     source_config.file_pattern,
@@ -56,11 +65,11 @@ class LoggerNetDataProvider(DataProvider):
         # Live file: unchanged behavior — full parse only when its size
         # actually changed since the last check.
         live_classified = next(c for c in classified if c.role == "live")  # exactly one, per classify_files
-        live_rel_name = live_classified.path.relative_to(self._data_root).as_posix()
+        live_rel_name = live_classified.path.as_posix()
         live_prev = previous_by_name.get(live_rel_name)
-        current_size = live_classified.path.stat().st_size
+        current_size = self._storage.stat(live_rel_name).size
         if live_prev is None or live_prev.size != current_size:
-            live_record = self._parse_record(live_classified.path, live_rel_name, "live", "active", source_config)
+            live_record = self._parse_record(live_rel_name, "live", "active", source_config)
             n_parsed += 1
         elif live_prev.status == "active":
             live_record = replace(live_prev, status="closed")  # unchanged since last check
@@ -102,33 +111,35 @@ class LoggerNetDataProvider(DataProvider):
         data. This is what makes file-index refresh cheap regardless of how many
         archived files a station has accumulated.
         """
-        candidates: list[tuple[str, Path, FileRecord | None, datetime | None]] = []
+        candidates: list[tuple[str, FileRecord | None, datetime | None]] = []
         n_parsed = 0
         for c in archived_classified:
-            rel_name = c.path.relative_to(self._data_root).as_posix()
+            rel_name = c.path.as_posix()
             prev = previous_by_name.get(rel_name)
             if prev is not None and prev.status == "closed":
-                candidates.append((rel_name, c.path, prev, prev.time_start))
+                candidates.append((rel_name, prev, prev.time_start))
                 continue
-            start = parse_toa5_start_time(c.path, timestamp_column=source_config.timestamp_column)
+            start = parse_toa5_start_time(
+                self._file(rel_name), timestamp_column=source_config.timestamp_column
+            )
             n_parsed += 1
-            candidates.append((rel_name, c.path, None, start))
+            candidates.append((rel_name, None, start))
 
-        candidates.sort(key=lambda item: item[3] or datetime.min)
+        candidates.sort(key=lambda item: item[2] or datetime.min)
 
         records: list[FileRecord] = []
-        for i, (rel_name, path, prev, start) in enumerate(candidates):
+        for i, (rel_name, prev, start) in enumerate(candidates):
             if prev is not None:
                 records.append(prev)  # already fully known, untouched
                 continue
-            next_start = candidates[i + 1][3] if i + 1 < len(candidates) else live_record.time_start
-            header = parse_toa5_header(path)
+            next_start = candidates[i + 1][2] if i + 1 < len(candidates) else live_record.time_start
+            header = parse_toa5_header(self._file(rel_name))
             variables = [name for name in header.column_names if name != source_config.timestamp_column]
             records.append(
                 FileRecord(
                     file_name=rel_name,
                     file_role="archived",
-                    size=path.stat().st_size,
+                    size=self._storage.stat(rel_name).size,
                     time_start=start,
                     time_end=next_start,
                     variables=variables,
@@ -162,7 +173,10 @@ class LoggerNetDataProvider(DataProvider):
         combined = reconcile_fileset(archived=archived_parsed, live=live_parsed)
         return combined.sel(time=slice(start, end))
 
-    def matched_files(self, source_config: LoggerNetSourceConfig) -> list[Path]:
+    def _file(self, rel_name: str) -> StorageFile:
+        return StorageFile(self._storage, rel_name)
+
+    def matched_files(self, source_config: LoggerNetSourceConfig) -> list[str]:
         """Every file matching `source_config`'s glob patterns whose header actually
         has the shape of a TOA5 file — a file_pattern no longer implies a `.dat`
         extension, so content, not extension, is what distinguishes a real TOA5
@@ -173,33 +187,34 @@ class LoggerNetDataProvider(DataProvider):
             _historical_pattern(source_config.file_pattern, source_config.historical_suffix),
             _backup_pattern(source_config.file_pattern),
         ]
-        matched: set[Path] = set()
+        matched: set[str] = set()
         for pattern in patterns:
-            matched.update(self._data_root.glob(pattern))
+            matched.update(self._storage.glob(pattern))
 
-        valid: list[Path] = []
-        for path in sorted(matched):
+        valid: list[str] = []
+        for rel_name in sorted(matched):
             try:
-                parse_toa5_header(path)
+                parse_toa5_header(self._file(rel_name))
             except Toa5FormatError as exc:
-                logger.warning("skipping {}: {}", path, exc)
+                logger.warning("skipping {}: {}", self._storage.describe(rel_name), exc)
                 continue
-            valid.append(path)
+            valid.append(rel_name)
         return valid
 
     def _parse_record(
         self,
-        path: Path,
         rel_name: str,
         role: str,
         status: str,
         source_config: LoggerNetSourceConfig,
     ) -> FileRecord:
-        parsed = parse_toa5_file(path, timestamp_column=source_config.timestamp_column)
+        parsed = parse_toa5_file(
+            self._file(rel_name), timestamp_column=source_config.timestamp_column
+        )
         return FileRecord(
             file_name=rel_name,
             file_role=role,  # type: ignore[arg-type]
-            size=path.stat().st_size,
+            size=self._storage.stat(rel_name).size,
             time_start=parsed.time_start,
             time_end=parsed.time_end,
             variables=list(parsed.dataset.data_vars),
@@ -214,7 +229,7 @@ class LoggerNetDataProvider(DataProvider):
     ) -> ParsedToa5File:
         if not source_config.cache_enabled or not self._cache.enabled:
             return parse_toa5_file(
-                self._data_root / record.file_name,
+                self._file(record.file_name),
                 timestamp_column=source_config.timestamp_column,
                 usecols=variables,
             )
@@ -232,7 +247,7 @@ class LoggerNetDataProvider(DataProvider):
             # later request for a different variable subset of the same
             # file/size is still a cache hit, rather than a fresh miss.
             parsed = parse_toa5_file(
-                self._data_root / record.file_name, timestamp_column=source_config.timestamp_column
+                self._file(record.file_name), timestamp_column=source_config.timestamp_column
             )
             ttl = (
                 settings.redis_archived_cache_ttl_seconds

@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import csv
+import io
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import IO, Iterator, TypeAlias
 
 import pandas as pd
 import xarray as xr
 from loguru import logger
+
+from open_csi_publisher.storage import StorageFile
+
+Toa5Source: TypeAlias = Path | StorageFile
 
 _TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 _NA_VALUES = ["NAN"]
@@ -43,7 +50,7 @@ class Toa5Header:
 
 @dataclass
 class ParsedToa5File:
-    path: Path
+    path: Toa5Source
     header: Toa5Header
     dataset: xr.Dataset
     n_rows: int
@@ -51,8 +58,20 @@ class ParsedToa5File:
     time_end: datetime | None
 
 
-def parse_toa5_header(path: Path) -> Toa5Header:
-    with open(path, newline="", encoding="utf-8") as f:
+@contextmanager
+def _open_binary(source: Toa5Source) -> Iterator[IO[bytes]]:
+    """Read-only handle on a local path or a Storage file (never opened for writing)."""
+    if isinstance(source, StorageFile):
+        with source.open_read() as handle:
+            yield handle
+    else:
+        with open(source, "rb") as handle:
+            yield handle
+
+
+def parse_toa5_header(path: Toa5Source) -> Toa5Header:
+    with _open_binary(path) as raw:
+        f = io.TextIOWrapper(raw, newline="", encoding="utf-8")
         reader = csv.reader(f)
         try:
             info_row = next(reader)
@@ -96,7 +115,7 @@ def parse_toa5_header(path: Path) -> Toa5Header:
     )
 
 
-def parse_toa5_start_time(path: Path, *, timestamp_column: str = "TIMESTAMP") -> datetime | None:
+def parse_toa5_start_time(path: Toa5Source, *, timestamp_column: str = "TIMESTAMP") -> datetime | None:
     """Cheap alternative to parse_toa5_file() for when only a file's first
     timestamp is needed (core/builder.py's file-index time bounds) — reads
     the 4-line header plus exactly one data row, never the rest of the file.
@@ -104,17 +123,18 @@ def parse_toa5_start_time(path: Path, *, timestamp_column: str = "TIMESTAMP") ->
     own convention.
     """
     header = parse_toa5_header(path)
-    df = pd.read_csv(
-        path,
-        skiprows=4,
-        header=None,
-        names=header.column_names,
-        quotechar='"',
-        usecols=[timestamp_column],
-        nrows=1,
-        encoding="utf-8",
-        encoding_errors="replace",
-    )
+    with _open_binary(path) as fh:
+        df = pd.read_csv(
+            fh,
+            skiprows=4,
+            header=None,
+            names=header.column_names,
+            quotechar='"',
+            usecols=[timestamp_column],
+            nrows=1,
+            encoding="utf-8",
+            encoding_errors="replace",
+        )
     if df.shape[0] == 0:
         return None
 
@@ -133,7 +153,7 @@ def parse_toa5_start_time(path: Path, *, timestamp_column: str = "TIMESTAMP") ->
 
 
 def parse_toa5_file(
-    path: Path,
+    path: Toa5Source,
     *,
     timestamp_column: str = "TIMESTAMP",
     usecols: list[str] | None = None,
@@ -162,23 +182,24 @@ def parse_toa5_file(
         ]
 
     try:
-        df = pd.read_csv(
-            path,
-            skiprows=4,
-            header=None,
-            names=header.column_names,
-            quotechar='"',
-            na_values=_NA_VALUES,
-            keep_default_na=True,
-            usecols=read_cols,
-            encoding="utf-8",
-            # LoggerNet dataloggers can leave raw storage-corruption bytes (observed:
-            # runs of 0xFF, likely unwritten flash) inside an otherwise well-formed
-            # quoted field after a power loss. Replacing undecodable bytes instead of
-            # raising keeps the rest of the file parseable; the affected field just
-            # comes through as garbled text rather than its real value.
-            encoding_errors="replace",
-        )
+        with _open_binary(path) as fh:
+            df = pd.read_csv(
+                fh,
+                skiprows=4,
+                header=None,
+                names=header.column_names,
+                quotechar='"',
+                na_values=_NA_VALUES,
+                keep_default_na=True,
+                usecols=read_cols,
+                encoding="utf-8",
+                # LoggerNet dataloggers can leave raw storage-corruption bytes (observed:
+                # runs of 0xFF, likely unwritten flash) inside an otherwise well-formed
+                # quoted field after a power loss. Replacing undecodable bytes instead of
+                # raising keeps the rest of the file parseable; the affected field just
+                # comes through as garbled text rather than its real value.
+                encoding_errors="replace",
+            )
     except pd.errors.EmptyDataError:
         df = pd.DataFrame(columns=read_cols or header.column_names)
 

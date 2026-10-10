@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePath
 from typing import Literal, Sequence
 
 import xarray as xr
@@ -17,12 +17,12 @@ class AmbiguousFileSetError(ValueError):
 
 @dataclass(frozen=True)
 class ClassifiedFile:
-    path: Path
+    path: PurePath
     role: Literal["live", "archived"]
 
 
 def classify_files(
-    paths: Sequence[Path], *, historical_suffix: str = "_Historical"
+    paths: Sequence[PurePath], *, historical_suffix: str = "_Historical"
 ) -> list[ClassifiedFile]:
     """Split matched files into the single actively-appended `live` file and zero or
     more `archived` files (implementation_plan.md real-data findings): a file is
@@ -43,13 +43,13 @@ def classify_files(
     return classified
 
 
-def _is_archived(path: Path, historical_suffix: str) -> bool:
+def _is_archived(path: PurePath, historical_suffix: str) -> bool:
     if path.stem.endswith(historical_suffix):
         return True
     return any(suffix.startswith(".backup") for suffix in path.suffixes)
 
 
-def count_live_candidates(paths: Sequence[Path], *, historical_suffix: str = "_Historical") -> int:
+def count_live_candidates(paths: Sequence[PurePath], *, historical_suffix: str = "_Historical") -> int:
     """How many of `paths` classify_files() would treat as `live` — lets a caller
     distinguish classify_files()'s two different AmbiguousFileSetError causes:
     zero live files (a station configured but not yet synced/created — "no data

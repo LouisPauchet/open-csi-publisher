@@ -40,7 +40,7 @@ def local_provider(tmp_path: Path) -> LoggerNetDataProvider:
     for rel, content in FILES.items():
         target = tmp_path / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_bytes(content.encode("utf-8"))
     return LoggerNetDataProvider(tmp_path)
 
 
