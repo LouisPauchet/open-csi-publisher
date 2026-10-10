@@ -1,36 +1,34 @@
 from __future__ import annotations
 
-from sqlalchemy import create_engine, inspect
+from pathlib import Path
 
-from open_csi_publisher.state.db import run_migrations
+from alembic import command
+from alembic.autogenerate import compare_metadata
+from alembic.config import Config
+from alembic.migration import MigrationContext
+from sqlalchemy import create_engine
+
 from open_csi_publisher.state.models import Base
 
-from ..conftest import REPO_ROOT
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _schema_snapshot(engine):
-    inspector = inspect(engine)
-    return {
-        table: {col["name"] for col in inspector.get_columns(table)}
-        for table in sorted(inspector.get_table_names())
-        if table != "alembic_version"
-    }
+def test_migrations_produce_the_schema_the_models_declare(tmp_path):
+    """Guards model/migration drift: file_index.size was BigInteger in the
+    model but Integer in the baseline migration, so Postgres rejected
+    ThingsBoard's epoch-millisecond change token ("integer out of range") while
+    sqlite-backed tests (create_all from the models) never noticed."""
+    url = f"sqlite:///{tmp_path / 'migrated.db'}"
+    config = Config(str(REPO_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(REPO_ROOT / "alembic"))
+    config.set_main_option("sqlalchemy.url", url)
+    command.upgrade(config, "head")
 
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            diff = compare_metadata(MigrationContext.configure(connection), Base.metadata)
+    finally:
+        engine.dispose()
 
-def test_run_migrations_matches_create_all_schema(tmp_path):
-    migrated_db = tmp_path / "migrated.db"
-    run_migrations(f"sqlite:///{migrated_db}", base_dir=str(REPO_ROOT))
-    migrated_engine = create_engine(f"sqlite:///{migrated_db}")
-
-    created_db = tmp_path / "created.db"
-    created_engine = create_engine(f"sqlite:///{created_db}")
-    Base.metadata.create_all(created_engine)
-
-    assert _schema_snapshot(migrated_engine) == _schema_snapshot(created_engine)
-
-
-def test_run_migrations_is_idempotent(tmp_path):
-    database_url = f"sqlite:///{tmp_path / 'state.db'}"
-
-    run_migrations(database_url, base_dir=str(REPO_ROOT))
-    run_migrations(database_url, base_dir=str(REPO_ROOT))  # must not raise
+    assert diff == []
