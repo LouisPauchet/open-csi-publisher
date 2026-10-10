@@ -309,3 +309,12 @@ def test_list_all_datasets_skips_s3_source_with_missing_env(monkeypatch, caplog)
         credentials_env_prefix="LN_OFS_S3",
     )
     assert list_all_datasets([source], base_dir=REPO_ROOT) == []
+
+
+def test_get_data_provider_generic_csv_rejects_s3_location():
+    source = SourceEntry(
+        id="s", type="generic_csv", config_provider="folder",
+        config_location="x", data_location="s3:///data",
+    )
+    with pytest.raises(ValueError, match="S3"):
+        get_data_provider(source, base_dir=REPO_ROOT)
