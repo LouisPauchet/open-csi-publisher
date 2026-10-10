@@ -108,7 +108,7 @@ def test_make_storage_s3_bucket_from_env(monkeypatch, tmp_path):
     for k, v in {"ACCESS_KEY_ID": "k", "SECRET_ACCESS_KEY": "s",
                  "ENDPOINT": "http://localhost:9", "REGION": "r", "BUCKET": "envbkt"}.items():
         monkeypatch.setenv(f"LN_OFS_S3_{k}", v)
-    s = make_storage("s3://__config__/", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
+    s = make_storage("s3:///__config__/", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
     assert isinstance(s, S3Storage)
     assert s.bucket == "envbkt" and s.prefix == "__config__"
 
@@ -132,3 +132,11 @@ def test_make_storage_s3_missing_credentials_raises_config_error(monkeypatch, tm
 def test_make_storage_s3_without_prefix_raises(tmp_path):
     with pytest.raises(StorageConfigError):
         make_storage("s3://b/x", base_dir=tmp_path, env_prefix=None)
+
+
+def test_make_storage_s3_no_bucket_anywhere_raises(monkeypatch, tmp_path):
+    monkeypatch.delenv("LN_OFS_S3_BUCKET", raising=False)
+    monkeypatch.setenv("LN_OFS_S3_ACCESS_KEY_ID", "k")
+    monkeypatch.setenv("LN_OFS_S3_SECRET_ACCESS_KEY", "s")
+    with pytest.raises(StorageConfigError, match="LN_OFS_S3_BUCKET"):
+        make_storage("s3:///data", base_dir=tmp_path, env_prefix="LN_OFS_S3_")
