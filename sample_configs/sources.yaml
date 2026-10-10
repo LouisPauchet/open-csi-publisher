@@ -25,3 +25,17 @@ sources:
 #    config_location: ""
 #    data_location: ""
 #    credentials_env_prefix: THINGSBOARD_NY_ALESUND
+
+# Example: LoggerNet data and dataset configs read directly from an S3 bucket (no
+# volume mount). Strictly read-only. `s3:///path` (empty host) takes the bucket from
+# LN_OFS_S3_BUCKET; `s3://my-bucket/path` names it explicitly. Credentials, endpoint
+# and region come from LN_OFS_S3_ACCESS_KEY_ID / _SECRET_ACCESS_KEY / _ENDPOINT /
+# _REGION (see .env.example). Keys and file_name values are identical to the
+# mounted-volume layout, so switching an existing source does not re-index anything.
+#
+#  - id: loggernet_ofs
+#    type: loggernet
+#    config_provider: folder
+#    config_location: s3:///__config__/
+#    data_location: s3:///
+#    credentials_env_prefix: LN_OFS_S3

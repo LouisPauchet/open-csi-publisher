@@ -38,6 +38,16 @@ services:
       # this at it:
       #   REDIS_URL: redis://redis:6379/0
       REDIS_URL: ""
+
+      # --- S3 data access (no volume mount; strictly read-only) ---
+      # For sources.yaml entries with s3:// locations and
+      # credentials_env_prefix: LN_OFS_S3. Prefer an .env file / secrets over
+      # inlining credentials here.
+      #   LN_OFS_S3_ACCESS_KEY_ID: ${LN_OFS_S3_ACCESS_KEY_ID}
+      #   LN_OFS_S3_SECRET_ACCESS_KEY: ${LN_OFS_S3_SECRET_ACCESS_KEY}
+      #   LN_OFS_S3_ENDPOINT: ${LN_OFS_S3_ENDPOINT}
+      #   LN_OFS_S3_REGION: ${LN_OFS_S3_REGION}
+      #   LN_OFS_S3_BUCKET: ${LN_OFS_S3_BUCKET}
     volumes:
       # Real source-station data (LoggerNet .dat/.dat.backup files) — never
       # baked into the image; read-only, the app only ever reads it.

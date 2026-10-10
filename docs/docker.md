@@ -96,3 +96,33 @@ curl -s http://127.0.0.1:8000/datasets
 docker compose logs -f
 docker compose down
 ```
+
+
+## Reading data straight from S3 (no volume mount)
+
+Instead of mounting a bucket (s3fs/goofys/rclone) under `mount/`, a source can read an
+S3-compatible bucket directly. The image ships with the `s3` extra; locally use
+`uv sync --extra s3`.
+
+```yaml
+- id: loggernet_ofs
+  type: loggernet
+  config_provider: folder
+  config_location: s3:///__config__/    # empty host -> bucket from LN_OFS_S3_BUCKET
+  data_location: s3:///
+  credentials_env_prefix: LN_OFS_S3
+```
+
+Set `LN_OFS_S3_ACCESS_KEY_ID`, `LN_OFS_S3_SECRET_ACCESS_KEY`, `LN_OFS_S3_ENDPOINT`,
+`LN_OFS_S3_REGION` and `LN_OFS_S3_BUCKET` (optional: `LN_OFS_S3_ADDRESSING_STYLE`,
+`path` by default). `s3://my-bucket/path` names the bucket in the URL instead (URL wins).
+
+- **Read-only by design.** The app only exposes list/stat/read operations on the bucket
+  (`src/open_csi_publisher/storage.py`, guarded by tests). Also give the key a read-only
+  IAM policy (`s3:GetObject`, `s3:ListBucket`) as defence in depth.
+- Missing or incomplete variables make that source log an error and be skipped; the app
+  still starts.
+- File names stay relative to the location, exactly as with a mounted volume, so the
+  existing file index remains valid when switching a source from a mount to S3.
+- `generic_csv` sources and the CLI tools (`validate`, `open-csi-config`) do not support
+  S3 locations yet.
