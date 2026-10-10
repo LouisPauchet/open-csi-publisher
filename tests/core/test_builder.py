@@ -332,3 +332,72 @@ def test_build_dataset_under_the_cap_succeeds(db_session, config_provider, data_
         data_provider=data_provider,
     )
     assert ds.sizes["time"] > 0
+
+
+# --- requested variables absent from the data -------------------------------------
+
+
+class _ScriptedReadProvider:
+    """DataProvider whose read_range() returns a scripted raw dataset, so a
+    test controls exactly which raw columns/times a build sees."""
+
+    def __init__(self, raw):
+        self._raw = raw
+
+    def get_file_index(self, source_config, previous=()):
+        from open_csi_publisher.core.models import FileRecord
+
+        return [
+            FileRecord(
+                file_name="fake.dat",
+                file_role="live",
+                size=10,
+                time_start=datetime(2020, 1, 1),
+                time_end=datetime(2020, 1, 2),
+                variables=[],
+                status="active",
+            )
+        ]
+
+    def read_range(self, source_config, files, start, end, variables=None):
+        return self._raw
+
+
+def _raw_with_only_unrelated_column():
+    import pandas as pd
+    import xarray as xr
+
+    times = pd.date_range("2020-01-01", periods=3, freq="h")
+    return xr.Dataset({"not_a_configured_column": ("time", [1.0, 2.0, 3.0])}, coords={"time": times})
+
+
+@pytest.mark.parametrize(
+    "dataset_id, coord",
+    [
+        ("isfjord_radio_solar_park_measurements3", "latitude"),  # fixed platform
+        ("hanna_resvoll_10min", "platform"),  # mobile platform
+    ],
+)
+@pytest.mark.parametrize("raw_factory_name", ["empty", "other_columns_only"])
+def test_build_dataset_requested_variable_absent_keeps_time_coordinate(
+    db_session, config_provider, dataset_id, coord, raw_factory_name
+):
+    """A `variables` filter naming only variables with no data in the window
+    (e.g. a ThingsBoard key silent for 30 days) must yield a valid, data-less
+    dataset — not a KeyError('time') from dropping the time coordinate."""
+    from open_csi_publisher.providers.base import empty_dataset
+
+    raw = empty_dataset() if raw_factory_name == "empty" else _raw_with_only_unrelated_column()
+
+    ds = build_dataset(
+        dataset_id,
+        variables=["variable_that_has_no_data"],
+        session=db_session,
+        config_provider=config_provider,
+        data_provider=_ScriptedReadProvider(raw),
+    )
+
+    assert list(ds.data_vars) == []
+    assert "time" in ds.coords
+    assert ds.sizes["time"] == (0 if raw_factory_name == "empty" else 3)
+    assert coord in ds.coords
