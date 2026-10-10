@@ -121,6 +121,8 @@ def get_data_provider(source: SourceEntry, *, base_dir: Path) -> DataProvider:
             cache=get_parse_cache(),
         )
     if source.type == "generic_csv":
+        if source.data_location.startswith("s3://"):
+            raise ValueError("S3 locations are not supported for generic_csv sources yet")
         return GenericCsvDataProvider(base_dir / source.data_location, cache=get_parse_cache())
     if source.type == "thingsboard":
         return ThingsBoardDataProvider(_get_thingsboard_client(source.credentials_env_prefix))
