@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.7.1...open-csi-publisher-v0.8.0) (2026-10-10)
+
+
+### Features
+
+* **config:** FolderConfigProvider reads through read-only Storage ([0c791b3](https://github.com/LouisPauchet/open-csi-publisher/commit/0c791b3598201193f461b54aa2a92a97b42fb5bd))
+* **loggernet:** read TOA5 files through read-only Storage ([201e594](https://github.com/LouisPauchet/open-csi-publisher/commit/201e594c43654c7c4fffad70099cad7ee46a16b0))
+* **sources:** clear error for S3 generic_csv locations ([31e927e](https://github.com/LouisPauchet/open-csi-publisher/commit/31e927e73f80dd55d55e4633e53d7f5d6908c1f9))
+* **sources:** resolve config/data locations through make_storage ([f9b1d30](https://github.com/LouisPauchet/open-csi-publisher/commit/f9b1d303cdcb29bab7f1a983dbd9f48c3c460143))
+* **storage:** read-only Storage with local and S3 backends ([2264f75](https://github.com/LouisPauchet/open-csi-publisher/commit/2264f75554ab386818b6d0281cacb399d309de46))
+
+
+### Bug Fixes
+
+* **builder:** keep time coordinate when requested variables have no data ([ab5ab5c](https://github.com/LouisPauchet/open-csi-publisher/commit/ab5ab5cec3c6e3c75761b356b72e756b4d08f834))
+* **state:** widen file_index.size to BigInteger for ThingsBoard change tokens ([3f2b917](https://github.com/LouisPauchet/open-csi-publisher/commit/3f2b91742651d429b013b2e42f381f3aa66adc26))
+* ThingsBoard prod errors (file_index.size overflow, empty variable selection) ([0cc37cd](https://github.com/LouisPauchet/open-csi-publisher/commit/0cc37cd2a2528e51a225130f62a117363838b340))
+* trigger CI ([7159d22](https://github.com/LouisPauchet/open-csi-publisher/commit/7159d2214541c1eee20a68f059e28c093a6d6542))
+
+
+### Documentation
+
+* read-only S3 data access (env, docker, sample sources) ([5a65316](https://github.com/LouisPauchet/open-csi-publisher/commit/5a65316cd6777ca54e765e80f6303daa2ee3999b))
+
 ## [0.7.1](https://github.com/LouisPauchet/open-csi-publisher/compare/open-csi-publisher-v0.7.0...open-csi-publisher-v0.7.1) (2026-08-14)
 
 
